@@ -68,8 +68,8 @@ def shower(queue, monitor):
         old_gray = frame_gray.copy()
         p0 = good_new.reshape(-1, 1, 2)
 
-
     cv2.destroyAllWindows()
+
 
 def infer(torch_queue, nn_model):
     def make_fig():

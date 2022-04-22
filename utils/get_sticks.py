@@ -7,8 +7,6 @@ from time import time, sleep
 import matplotlib.pyplot as plt
 from drawnow import drawnow
 from tqdm import tqdm
-import pickle
-import pandas as pd
 
 
 def json_writer(dict_to_write, full_path):
@@ -171,7 +169,7 @@ class Joystick:
         return self.norm_reading
 
     def calib_read(self):
-        # t0 = time()
+        t0 = time()
         self.calib_reading = self.norm_read()
         for i, k in enumerate(self.sticks.keys()):
             self.calib_reading[self.sticks[k]["axis_idx"]] *= self.sticks[k]["sign_reversed"]
@@ -180,6 +178,20 @@ class Joystick:
             else:
                 self.calib_reading[self.sticks[k]["axis_idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["axis_idx"]], self.sticks[k]["center"], 1, 0, 1)
         return self.calib_reading
+
+
+def get_sticks(sticks_queue, rc):
+    while True:
+        sticks_queue.put_nowait([time(), rc.calib_read()])
+
+
+def save_sticks(sticks_queue, path):
+    # df = pd.DataFrame()
+    sticks = np.empty(shape=(0, 5))
+    while True:
+        t, sticks = sticks_queue.get()
+        sticks = np.vstack((sticks, np.append(t, rc.calib_read())))
+    pickle.dump(sticks, path)
 
 
 if __name__ == '__main__':

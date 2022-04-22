@@ -1,8 +1,10 @@
+# Depricated. Calibration occurs in get_sticks.py
 import pygame
 import numpy as np
 import matplotlib.pyplot as plt
 from drawnow import drawnow
 
+raise DeprecationWarning("Calibration_sticks.py has been depricated. \nCalibration occurs in get_sticks.py")
 
 fps = 20
 past = 5

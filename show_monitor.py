@@ -71,7 +71,7 @@ if __name__ == '__main__':
             "mon": monitor_number,
         }
         output = "sct-mon{mon}_{top}x{left}_{width}x{height}.png".format(**monitor)
-
+        img_byte = sct.grab(monitor)
         pqueue = Queue(maxsize=1)
         tqueue = Queue(maxsize=1)
         shower_p = Process(target=shower, args=(pqueue, monitor))

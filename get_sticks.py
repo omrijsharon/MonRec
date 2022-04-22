@@ -115,6 +115,9 @@ class Joystick:
             self.max_vals = np.array(calib_file["max_vals"])
             self.sticks = calib_file["sticks"]
 
+        elif load_calibration_file and not os.path.isfile(calibration_file_path):
+            raise FileNotFoundError("Calibration file does not exist. Calibration path given: " + calibration_file_path)
+
         else:
             # Check which sticks move
             print("\nmove the sticks around")

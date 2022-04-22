@@ -14,18 +14,62 @@ from copy import copy
 
 
 def shower(queue, monitor):
+    # params for ShiTomasi corner detection
+    feature_params = dict(maxCorners=100,
+                          qualityLevel=0.01,
+                          minDistance=5,
+                          blockSize=7)
+    lk_params = dict(winSize=(10, 10),
+                     maxLevel=3,
+                     criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+    color = np.random.randint(0, 255, (100, 3))
+    msg = queue.get()
+    old_frame = np.frombuffer(msg.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)
+    old_frame = cv2.cvtColor(old_frame, cv2.COLOR_RGB2BGR)
+    old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
+    p0 = cv2.goodFeaturesToTrack(old_gray, mask=None, **feature_params)
+
+    # mask = np.zeros(shape=(int(640*1.5), int(480*1.5), 3), dtype=np.uint8)
+    mask = np.zeros_like(old_frame)
     while True:
         msg = queue.get()
         # while queue.qsize() > 4:
         #     queue.get_nowait()
         if (msg=='DONE'):
             break
-        img = np.frombuffer(msg.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)[:, :, ::-1]
+        # frame = np.frombuffer(msg.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)[:, :, ::-1]
+        frame = np.frombuffer(msg.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        frame_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+        # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
+
+        if p1 is None or len(p1) < 6:
+            p0 = cv2.goodFeaturesToTrack(old_gray, mask=None, **feature_params)
+            img = cv2.add(frame, mask*0)
+            continue
+
+        # Select good points
+        good_new = p1[st == 1]
+        good_old = p0[st == 1]
+
+        for i, (new, old) in enumerate(zip(good_new, good_old)):
+            a, b = new.ravel().astype(int)
+            c, d = old.ravel().astype(int)
+            # mask = cv2.line(mask, (a, b), (c, d), color[i].tolist(), 2)
+            frame = cv2.circle(frame, (a, b), 5, color[i].tolist(), -1)
+        img = cv2.add(frame, mask)
+
         cv2.imshow("Output", img)
         k = cv2.waitKey(1)
         if k == 27:  # Esc key to stop
             break
 
+        old_gray = frame_gray.copy()
+        p0 = good_new.reshape(-1, 1, 2)
+
+
+    cv2.destroyAllWindows()
 
 def infer(torch_queue, nn_model):
     def make_fig():
@@ -53,9 +97,9 @@ def taker(queue):
 if __name__ == '__main__':
     basic_model = models.mobilenet_v3_small(pretrained=True)
     # basic_model.eval()
-    mobilenet_v3_small = model.Model(basic_model, 2).requires_grad_(False)
-    mobilenet_v3_small.eval()
-    mobilenet_v3_small.cuda()
+    # mobilenet_v3_small = model.Model(basic_model, 2).requires_grad_(False)
+    # mobilenet_v3_small.eval()
+    # mobilenet_v3_small.cuda()
 
     with mss.mss() as sct:
         # Get information of monitor 2
@@ -64,10 +108,12 @@ if __name__ == '__main__':
 
         # The screen part to capture
         monitor = {
-            "top": mon["top"] + 200,  # 100px from the top
-            "left": mon["left"] + 200,  # 100px from the left
-            "width": int(1280),
-            "height": int(720),
+            "top": mon["top"] + 160,  # 100px from the top
+            "left": mon["left"] + 250,  # 100px from the left
+            # "width": int(480*1.5),
+            # "height": int(640*1.5),
+            "width": int(640*1.5),
+            "height": int(480*1.5),
             "mon": monitor_number,
         }
         output = "sct-mon{mon}_{top}x{left}_{width}x{height}.png".format(**monitor)

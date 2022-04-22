@@ -8,20 +8,27 @@ from torch.multiprocessing import Process, Queue
 from drawnow import drawnow
 import matplotlib.pyplot as plt
 import torch
+from torch.nn import functional as F
 import torchvision.models as models
 import model
 from copy import copy
 
 
 def shower(queue, monitor):
+    msg = queue.get()
+    old_img = np.frombuffer(msg.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)[:, :, ::-1]
+    old_img = cv2.cvtColor(old_img, cv2.COLOR_BGR2GRAY)
     while True:
         msg = queue.get()
         # while queue.qsize() > 4:
         #     queue.get_nowait()
         if (msg=='DONE'):
             break
-        img = np.frombuffer(msg.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)[:, :, ::-1]
-        cv2.imshow("Output", img)
+        new_img = np.frombuffer(msg.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)[:, :, ::-1]
+        new_img = cv2.cvtColor(new_img, cv2.COLOR_BGR2GRAY)
+        img = (((new_img - old_img) + 255)/2)
+        cv2.imshow("Output", img.astype(np.uint8))
+        old_img = new_img
         k = cv2.waitKey(1)
         if k == 27:  # Esc key to stop
             break
@@ -50,12 +57,30 @@ def taker(queue):
     queue.put('DONE')
 
 
+class GradientModel(torch.nn.Module):
+    def __init__(self):
+        super(GradientModel, self).__init__()
+        self.kernel_size = 7
+        # self.stride = 2
+        self.stride = int((self.kernel_size + 1) / 2)
+        axis = torch.sin(torch.linspace(-np.pi/2, np.pi/2, self.kernel_size))
+        X, Y = torch.meshgrid(axis, axis)
+        self.kernel_x = X.unsqueeze(0).unsqueeze(0)
+        self.kernel_y = Y.unsqueeze(0).unsqueeze(0)
+
+    def forward(self, x):
+        x = cv2.cvtColor(x, cv2.COLOR_BGR2GRAY)
+        x = torch.from_numpy(x).float().unsqueeze(0).unsqueeze(0)
+        x = 2 * (x / 255) - 1
+        x = torch.sqrt(
+            F.conv2d(x, self.kernel_x, stride=self.stride, padding=0) ** 2 \
+            + F.conv2d(x, self.kernel_y, stride=self.stride, padding=0) ** 2
+        )
+        return x.squeeze()
+
+
 if __name__ == '__main__':
-    basic_model = models.mobilenet_v3_small(pretrained=True)
-    # basic_model.eval()
-    mobilenet_v3_small = model.Model(basic_model, 2).requires_grad_(False)
-    mobilenet_v3_small.eval()
-    mobilenet_v3_small.cuda()
+
 
     with mss.mss() as sct:
         # Get information of monitor 2
@@ -64,12 +89,17 @@ if __name__ == '__main__':
 
         # The screen part to capture
         monitor = {
-            "top": mon["top"] + 200,  # 100px from the top
-            "left": mon["left"] + 200,  # 100px from the left
+            "top": mon["top"] + 700,  # 100px from the top
+            "left": mon["left"] + 1280,  # 100px from the left
             "width": int(1280),
             "height": int(720),
             "mon": monitor_number,
         }
+
+        # img_byte = sct.grab(monitor)
+        # img = np.frombuffer(img_byte.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)
+        # model(img)
+
         output = "sct-mon{mon}_{top}x{left}_{width}x{height}.png".format(**monitor)
 
         pqueue = Queue(maxsize=1)

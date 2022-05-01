@@ -71,6 +71,22 @@ def shower(queue, monitor):
     cv2.destroyAllWindows()
 
 
+def shower_plain(queue, monitor):
+    while True:
+        msg = queue.get()
+        # while queue.qsize() > 4:
+        #     queue.get_nowait()
+        if (msg=='DONE'):
+            break
+        # frame = np.frombuffer(msg.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)[:, :, ::-1]
+        frame = np.frombuffer(msg.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        cv2.imshow("Output", frame)
+        k = cv2.waitKey(1)
+        if k == 27:  # Esc key to stop
+            break
+    cv2.destroyAllWindows()
+
 def infer(torch_queue, nn_model):
     def make_fig():
         print(y)
@@ -112,15 +128,15 @@ if __name__ == '__main__':
             "left": mon["left"] + 250,  # 100px from the left
             # "width": int(480*1.5),
             # "height": int(640*1.5),
-            "width": int(640*1.5),
-            "height": int(480*1.5),
+            "width": int(1280),
+            "height": int(720),
             "mon": monitor_number,
         }
         output = "sct-mon{mon}_{top}x{left}_{width}x{height}.png".format(**monitor)
 
         pqueue = Queue(maxsize=1)
         tqueue = Queue(maxsize=1)
-        shower_p = Process(target=shower, args=(pqueue, monitor))
+        shower_p = Process(target=shower_plain, args=(pqueue, monitor))
         shower_p.daemon = True
         shower_p.start()
 
@@ -131,11 +147,15 @@ if __name__ == '__main__':
         # taker(pqueue)
         # while True:
         t0 = time()
+        i=0
         while True:
             img_byte = sct.grab(monitor)
             pqueue.put(img_byte)
             img = np.frombuffer(img_byte.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)
-            if img.sum() == 0:
+            # if img.sum() == 0:
+            #     break
+            i+=1
+            if i==10000:
                 break
             # print("capture: ", 1/(time()-t0))
             # t0 = time()

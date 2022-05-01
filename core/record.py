@@ -1,3 +1,4 @@
+import zerorpc
 import numpy as np
 from time import sleep, time, perf_counter
 import mss
@@ -7,6 +8,26 @@ from multiprocessing import Process, Queue
 # from torch.multiprocessing import Process, Queue
 from utils.get_sticks import get_sticks, save_sticks, Joystick
 from utils.get_frames import get_frames, save_frames
+
+
+class Manager:
+    def __init__(self, frames_queue, sticks_queue):
+        rc = Joystick()
+        run = rc.status
+        rc.calibrate("frsky.json", load_calibration_file=True)
+        
+
+
+
+    def hello(self, name):
+        return "Hello, %s" % name
+
+
+frames_queue = Queue()
+sticks_queue = Queue()
+s = zerorpc.Server(Manager(frames_queue, sticks_queue))
+s.bind("tcp://0.0.0.0:4242")
+s.run()
 
 
 def start_recording(args):

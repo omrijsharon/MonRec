@@ -1,5 +1,5 @@
 import numpy as np
-from time import sleep, time
+from time import sleep, time, perf_counter
 import mss
 import mss.tools
 import cv2
@@ -71,7 +71,13 @@ if __name__ == '__main__':
             "mon": monitor_number,
         }
         output = "sct-mon{mon}_{top}x{left}_{width}x{height}.png".format(**monitor)
+
+        t0 = perf_counter()
         img_byte = sct.grab(monitor)
+        t1 = perf_counter()
+        sum(img_byte.pixels[0][0]) == 0
+        t2 = perf_counter()
+        print(t2-t1)
         pqueue = Queue(maxsize=1)
         tqueue = Queue(maxsize=1)
         shower_p = Process(target=shower, args=(pqueue, monitor))

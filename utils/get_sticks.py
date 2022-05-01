@@ -7,17 +7,7 @@ from time import time, sleep
 import matplotlib.pyplot as plt
 from drawnow import drawnow
 from tqdm import tqdm
-
-
-def json_writer(dict_to_write, full_path):
-    with open(full_path, 'w', encoding='utf-8') as f:
-        json.dump(dict_to_write, f, ensure_ascii=False, indent=4)
-
-
-def json_reader(path):
-    with open(path) as f:
-        data = json.load(f)
-    return data
+from utils.json_helper import json_writer, json_reader
 
 
 class Joystick:
@@ -37,13 +27,15 @@ class Joystick:
         self.ret = ret
         self.caps = caps
         self.calib = False
+        self.axisXYZ = None
+        self.axisRUV = None
 
     @property
     def status(self):
         return self.ret
 
     def read(self, with_buttons=False):
-        ret, info = joystickapi.joyGetPosEx(self.id_num)
+        self.ret, info = joystickapi.joyGetPosEx(self.id_num)
         self.axisXYZ = [info.dwXpos-self.startinfo.dwXpos, info.dwYpos-self.startinfo.dwYpos, info.dwZpos-self.startinfo.dwZpos]
         self.axisRUV = [info.dwRpos-self.startinfo.dwRpos, info.dwUpos-self.startinfo.dwUpos, info.dwVpos-self.startinfo.dwVpos]
         if with_buttons:

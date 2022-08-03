@@ -7,8 +7,6 @@ from time import time, sleep
 import matplotlib.pyplot as plt
 from drawnow import drawnow
 from tqdm import tqdm
-import pickle
-import pandas as pd
 
 
 def json_writer(dict_to_write, full_path):
@@ -33,7 +31,7 @@ class Joystick:
                 ret, self.startinfo = joystickapi.joyGetPosEx(id_num)
                 break
         else:
-            print("no gamepad detected")
+            raise ModuleNotFoundError("no gamepad detected")
         self.id_num = id_num
         self.btns = None
         self.ret = ret
@@ -44,13 +42,20 @@ class Joystick:
     def status(self):
         return self.ret
 
-    def read(self, with_buttons=False):
+    def read_old(self, with_buttons=False):
         ret, info = joystickapi.joyGetPosEx(self.id_num)
         self.axisXYZ = [info.dwXpos-self.startinfo.dwXpos, info.dwYpos-self.startinfo.dwYpos, info.dwZpos-self.startinfo.dwZpos]
         self.axisRUV = [info.dwRpos-self.startinfo.dwRpos, info.dwUpos-self.startinfo.dwUpos, info.dwVpos-self.startinfo.dwVpos]
         if with_buttons:
             self.btns = [(1 << i) & info.dwButtons != 0 for i in range(self.caps.wNumButtons)]
         return {"axes": [*self.axisXYZ, *self.axisRUV], "buttons": self.btns}
+
+    def read(self):
+        ret, info = joystickapi.joyGetPosEx(self.id_num)
+        # self.axisXYZ = [info.dwXpos, info.dwYpos, info.dwZpos]
+        # self.axisRUV = [info.dwRpos, info.dwUpos, info.dwVpos]
+        # return np.array([[*self.axisXYZ, *self.axisRUV]])
+        return np.array([[info.dwXpos, info.dwYpos, info.dwZpos, info.dwRpos, info.dwUpos, info.dwVpos]])
 
     def make_fig_bars(self):
         k = 1
@@ -64,19 +69,22 @@ class Joystick:
 
     def make_fig_axes(self):
         alpha = 0.2
-        plt.subplot(1, 2, 1)
+        plt.subplot(1, 3, 1)
         plt.plot([-1, 1], [0, 0], 'b', lw=3, alpha=alpha)
         plt.plot([0, 0], [-1, 1], 'b', lw=3, alpha=alpha)
-        plt.scatter(self.calib_reading[self.sticks["yaw"]["axis_idx"]], self.calib_reading[self.sticks["throttle"]["axis_idx"]])
+        plt.scatter(self.calib_reading[self.sticks["yaw"]["idx"]], self.calib_reading[self.sticks["throttle"]["idx"]])
         plt.axis('square')
         plt.xlim(-1, 1)
         plt.ylim(-1, 1)
-        plt.subplot(1, 2, 2)
+        plt.subplot(1, 3, 2)
         plt.plot([-1, 1], [0, 0], 'b', lw=3, alpha=alpha)
         plt.plot([0, 0], [-1, 1], 'b', lw=3, alpha=alpha)
-        plt.scatter(self.calib_reading[self.sticks["roll"]["axis_idx"]], self.calib_reading[self.sticks["pitch"]["axis_idx"]])
+        plt.scatter(self.calib_reading[self.sticks["roll"]["idx"]], self.calib_reading[self.sticks["pitch"]["idx"]])
         plt.axis('square')
         plt.xlim(-1, 1)
+        plt.ylim(-1, 1)
+        plt.subplot(1, 3, 3)
+        plt.bar(list(self.switches.keys()), [self.calib_reading[self.switches["switch1"]["idx"]], self.calib_reading[self.switches["switch2"]["idx"]]])
         plt.ylim(-1, 1)
 
     def render_bars(self):
@@ -89,18 +97,17 @@ class Joystick:
         def record(t_sec, rps=100, text=None):
             if text is not None:
                 print(text)
-            readings = np.array(self.read(with_buttons=False)["axes"]).reshape(1, -1)
+            readings = self.read()
             for _ in tqdm(range(t_sec * rps)):
-                readings = np.vstack((readings, np.array(self.read(with_buttons=False)["axes"]).reshape(1, -1)))
+                readings = np.vstack((readings, self.read()))
                 sleep(1 / rps)
             return readings
-
         def norm_record(t_sec, rps=100, text=None):
             if text is not None:
                 print(text)
-            readings = np.array(self.norm_read()).reshape(1, -1)
+            readings = self.norm_read()
             for _ in tqdm(range(t_sec * rps)):
-                readings = np.vstack((readings, np.array(self.norm_read()).reshape(1, -1)))
+                readings = np.vstack((readings, self.norm_read()))
                 sleep(1 / rps)
             return readings
 
@@ -108,54 +115,106 @@ class Joystick:
             for i in range(2, len(readings)):
                 if readings[-i:].std(axis=0).mean() > 1e-16:
                     break
-            return readings[-i + 1:].mean(axis=0)
+            return readings[-i + 1:].mean(axis=0, keepdims=True)
 
         if load_calibration_file and os.path.isfile(calibration_file_path):
             calib_file = json_reader(calibration_file_path)
-            self.active_axes = np.array(calib_file["active_axes"])
+            # self.active_axes = np.array(calib_file["active_axes"])
             self.min_vals = np.array(calib_file["min_vals"])
             self.max_vals = np.array(calib_file["max_vals"])
             self.sticks = calib_file["sticks"]
+            self.switches = calib_file["switches"]
+            self.sign_reverse = calib_file["sign_reverse"]
 
         elif load_calibration_file and not os.path.isfile(calibration_file_path):
             raise FileNotFoundError("Calibration file does not exist. Calibration path given: {}".format(calibration_file_path))
 
         else:
             # Check which sticks move
-            print("\nmove the sticks around")
-            readings = record(t_sec=5)
-            self.active_axes = np.sort(np.argsort(readings.std(axis=0))[::-1][:4])
+            print("Move the sticks around, all the way to the edges.")
+            readings_axes = record(t_sec=4)
+            readings_axes = readings_axes[1:]
+            readings_axes_std = readings_axes.std(axis=0)
+            if np.any(readings_axes_std > 1e-16):
+                self.active_axes = np.sort(np.argsort(readings_axes_std)[::-1][:4])
+            else:
+                raise ValueError("No sticks detected. Please move the sticks around and try again.")
+            print("Axes indices: ", self.active_axes)
 
+            record(t_sec=2, text="center all sticks")
+
+            print("Move the switches all the way (can read only 2 configured switches).")
+            readings_swiches = record(t_sec=3)
+            readings_swiches = readings_swiches[1:]
+            readings_swiches_std = readings_swiches.std(axis=0)
+            if np.any(readings_swiches_std > 1e-16):
+                self.active_swiches = np.sort(np.argsort(readings_swiches_std)[::-1][:2])
+            else:
+                raise ValueError("No sticks detected. Please move the sticks around and try again.")
+            print("Swiches indices: ", self.active_swiches)
+
+            readings = np.vstack((readings_axes, readings_swiches))
             # Get min and max
-            self.min_vals = readings[:, self.active_axes].min(axis=0)
-            self.max_vals = readings[:, self.active_axes].max(axis=0)
-
-            readings = norm_record(t_sec=3, text="\ncenter all sticks\n")
-            center = get_center(readings).reshape(1, -1)
+            self.min_vals = readings.min(axis=0)
+            self.max_vals = readings.max(axis=0)
+            self.sign_reverse = np.ones(6)
+            # switches_center = (self.min_vals[self.active_swiches] + self.max_vals[self.active_swiches]) / 2 - self.min_vals[self.active_swiches]
+            readings = norm_record(t_sec=2, text="center all sticks")
+            center = get_center(readings)
 
             self.sticks = {"throttle": {}, "yaw": {}, "pitch": {}, "roll": {}}
             commands = ["up", "to the right"]
             for i, k in enumerate(self.sticks.keys()):
-                readings = norm_record(t_sec=5, text="\nmove the " + k + " stick " + commands[i % 2])
-                axis_idx = np.argmax(np.abs(readings).max(axis=0))
-                print("\n" + k + " axis idx: ", axis_idx)
-                self.sticks[k]["axis_idx"] = int(axis_idx)
-                self.sticks[k]["sign_reversed"] = np.sign(readings[np.argmax(np.abs(readings[:, axis_idx])), axis_idx])
-                readings = norm_record(t_sec=3, text="\ncenter all sticks\n")
-                center = np.vstack((center, get_center(readings).reshape(1, -1)))
+                readings = norm_record(t_sec=5, text="\nMove the " + k + " stick " + commands[i % 2])
+                idx = self.active_axes[np.argmax(readings[:, self.active_axes].std(axis=0))]
+                print("\n" + k + " axis idx: ", idx)
+                self.sticks[k]["idx"] = int(idx)
+                # self.sticks[k]["sign_reversed"] = np.sign(readings[np.argmax(np.abs(readings[:, idx])), idx])
+                self.sign_reverse[idx] = np.sign(readings[np.argmax(np.abs(readings[:, idx])), idx])
+                readings = norm_record(t_sec=3, text="center all sticks")
+                center = np.vstack((center, get_center(readings)))
             print(self.sticks)
             center = center.mean(axis=0)
             for i, k in enumerate(self.sticks.keys()):
-                self.sticks[k]["center"] = center[self.sticks[k]["axis_idx"]]
+                self.sticks[k]["center"] = center[self.sticks[k]["idx"]]
+
+            self.switches = {"switch1": {}, "switch2": {}}
+            commands = ["off", "on"]
+            for i, k in enumerate(self.switches.keys()):
+                # Identify switches
+                readings = norm_record(t_sec=4, text=f"Turn {k} on and off repeatedly.")
+                idx = self.active_swiches[np.argmax(readings[:, self.active_swiches].std(axis=0))]
+                print(k + " axis idx: ", idx)
+                self.switches[k]["idx"] = int(idx)
+                cond = 0
+                attempts = 0
+                while cond == 0:
+                    # Check switches direction
+                    command_reading = {}
+                    for command in commands:
+                        readings = norm_record(t_sec=3, text=f"\nTurn {k} {command}.")
+                        command_reading[command] = readings[-1, idx]
+                    norm_record(t_sec=3, text=f"\nTurn {k} off.")
+                    cond = command_reading["on"] - command_reading["off"]
+                    # self.switches[k]["sign_reversed"] = np.sign(cond)
+                    self.sign_reverse[idx] = np.sign(cond)
+                    attempts += 1
+                    if attempts > 1:
+                        print("\nCould not identify switch direction. Please try again.")
+                    if attempts > 3:
+                        raise ValueError("Could not identify switch direction after 3 attempts.")
 
             self.save_calibration(dict_to_write={
-                "active_axes": self.active_axes.tolist(),
+                # "active_axes": self.active_axes.tolist(),
                 "sticks": self.sticks,
+                "switches": self.switches,
                 "min_vals": self.min_vals.tolist(),
                 "max_vals": self.max_vals.tolist(),
+                "sign_reverse": self.sign_reverse.tolist()
                 }, full_path=calibration_file_path)
 
     def save_calibration(self, dict_to_write, full_path):
+        os.path.exists(os.path.dirname(full_path)) or os.makedirs(os.path.dirname(full_path))
         json_writer(dict_to_write, full_path)
 
     def load_calibration(self, path):
@@ -166,20 +225,18 @@ class Joystick:
         return y
 
     def norm_read(self):
-        self.norm_reading = np.array(self.read(with_buttons=False)["axes"])[self.active_axes]
-        self.norm_reading = np.array([self.mapFromTo(r, self.min_vals[i], self.max_vals[i], -1, 1) for i, r in enumerate(self.norm_reading)])
-        return self.norm_reading
+        return np.array([[self.mapFromTo(r, self.min_vals[i], self.max_vals[i], -1, 1) for i, r in enumerate(self.read()[0])]])
 
     def calib_read(self):
         # t0 = time()
-        self.calib_reading = self.norm_read()
+        self.calib_reading = self.norm_read()[0]
         for i, k in enumerate(self.sticks.keys()):
-            self.calib_reading[self.sticks[k]["axis_idx"]] *= self.sticks[k]["sign_reversed"]
-            if self.calib_reading[self.sticks[k]["axis_idx"]] <= self.sticks[k]["center"]:
-                self.calib_reading[self.sticks[k]["axis_idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["axis_idx"]], -1, self.sticks[k]["center"], -1, 0)
+            # self.calib_reading[self.sticks[k]["idx"]] *= self.sticks[k]["sign_reversed"]
+            if self.calib_reading[self.sticks[k]["idx"]] <= self.sticks[k]["center"]:
+                self.calib_reading[self.sticks[k]["idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["idx"]], -1, self.sticks[k]["center"], -1, 0)
             else:
-                self.calib_reading[self.sticks[k]["axis_idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["axis_idx"]], self.sticks[k]["center"], 1, 0, 1)
-        return self.calib_reading
+                self.calib_reading[self.sticks[k]["idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["idx"]], self.sticks[k]["center"], 1, 0, 1)
+        return self.calib_reading * self.sign_reverse
 
 
 if __name__ == '__main__':
@@ -188,7 +245,7 @@ if __name__ == '__main__':
 
     rc = Joystick()
     run = rc.status
-    rc.calibrate("frsky.json", load_calibration_file=True)
+    rc.calibrate(os.path.join("config", "frsky.json"), load_calibration_file=True)
     while run:
         rc.calib_read()
         rc.render_axes()

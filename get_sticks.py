@@ -3,7 +3,7 @@ import joystickapi
 import numpy as np
 import os
 import json
-from time import time, sleep
+from time import time, sleep, perf_counter
 import matplotlib.pyplot as plt
 from drawnow import drawnow
 from tqdm import tqdm
@@ -247,7 +247,13 @@ if __name__ == '__main__':
     run = rc.status
     rc.calibrate(os.path.join("config", "frsky.json"), load_calibration_file=True)
     while run:
-        rc.calib_read()
+        # t0 = perf_counter()
+        # for i in range(100):
+        #     a = rc.calib_read()
+        #     if a is None:
+        #         break
+        # print(1/((perf_counter() - t0) / 100) , "readings per second")
+        print(rc.calib_read())
         rc.render_axes()
 
     """

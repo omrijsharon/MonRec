@@ -58,6 +58,7 @@ def save_sticks_from_queue(queue_rc, path, calib_file, stop_func, queue_frames, 
     while True:
         timestamp, sticks = queue_rc.get()
         if stop_func(sticks) is True:
+            print("Stopping...")
             for _ in range(num_frame_workers):
                 queue_frames.put((timestamp, None))
             break
@@ -68,6 +69,7 @@ def save_sticks_from_queue(queue_rc, path, calib_file, stop_func, queue_frames, 
             df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(buffer_size))))
             df.to_csv(os.path.join(path, "sticks.csv"), index=False)
             i = 0
+            print("queue_rc size:", queue_rc.qsize())
     # when breaking out of the loop, save the last buffer
     buffer = buffer[:i % buffer_size, :]
     df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(buffer_size))))

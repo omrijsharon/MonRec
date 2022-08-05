@@ -25,7 +25,9 @@ def main():
     path = r'C:\Users\omrijsharon\Documents\fpv\tryp_rec'
     calib_file = r"C:\Users\omrijsharon\Documents\repos\MonRec\config\frsky.json"
     calib_dict = json_reader(calib_file)
-    partial_stop_func = partial(stop_func, calib_dict=calib_dict, switch="switch1", stop_value=-1.0)
+    stop_switch = "switch1"
+    stop_value = -1.0
+    partial_stop_func = partial(stop_func, calib_dict=calib_dict, switch=stop_switch, stop_value=stop_value)
     type = "jpg"
     compression = 70
 
@@ -47,7 +49,7 @@ def main():
     p_grab_frames.terminate()
     p_grab_sticks.terminate()
     print("queue_frames.qsize() : ", queue_frames.qsize(), "      queue_sticks.qsize() : ", queue_sticks.qsize())
-    queue_sticks.put_nowait((None, np.ones(6)))
+    queue_sticks.put_nowait((None, stop_value * np.ones(6)))
     # [queue_frames.put((None, None)) for _ in range(num_workers)]
 
     # wait for processes to finish

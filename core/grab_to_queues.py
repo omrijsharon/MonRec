@@ -39,6 +39,7 @@ def grab_sticks_to_queue(queue_sticks):
         queue_sticks.put_nowait((datetime.now().timestamp(), rc.calib_read()))
         sleep(1e-6)
 
+
 if __name__ == '__main__':
     q = Queue()
     grab_sticks_to_queue(q)

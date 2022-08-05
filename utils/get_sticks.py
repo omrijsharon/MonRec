@@ -1,3 +1,4 @@
+# TODO: not updated. do not use!
 # https://github.com/Rabbid76/python_windows_joystickapi
 import joystickapi
 import numpy as np
@@ -57,14 +58,14 @@ class Joystick:
         plt.subplot(1, 2, 1)
         plt.plot([-1, 1], [0, 0], 'b', lw=3, alpha=alpha)
         plt.plot([0, 0], [-1, 1], 'b', lw=3, alpha=alpha)
-        plt.scatter(self.calib_reading[self.sticks["yaw"]["axis_idx"]], self.calib_reading[self.sticks["throttle"]["axis_idx"]])
+        plt.scatter(self.calib_reading[self.sticks["yaw"]["idx"]], self.calib_reading[self.sticks["throttle"]["idx"]])
         plt.axis('square')
         plt.xlim(-1, 1)
         plt.ylim(-1, 1)
         plt.subplot(1, 2, 2)
         plt.plot([-1, 1], [0, 0], 'b', lw=3, alpha=alpha)
         plt.plot([0, 0], [-1, 1], 'b', lw=3, alpha=alpha)
-        plt.scatter(self.calib_reading[self.sticks["roll"]["axis_idx"]], self.calib_reading[self.sticks["pitch"]["axis_idx"]])
+        plt.scatter(self.calib_reading[self.sticks["roll"]["idx"]], self.calib_reading[self.sticks["pitch"]["idx"]])
         plt.axis('square')
         plt.xlim(-1, 1)
         plt.ylim(-1, 1)
@@ -127,16 +128,16 @@ class Joystick:
             commands = ["up", "to the right"]
             for i, k in enumerate(self.sticks.keys()):
                 readings = norm_record(t_sec=5, text="\nmove the " + k + " stick " + commands[i % 2])
-                axis_idx = np.argmax(np.abs(readings).max(axis=0))
-                print("\n" + k + " axis idx: ", axis_idx)
-                self.sticks[k]["axis_idx"] = int(axis_idx)
-                self.sticks[k]["sign_reversed"] = np.sign(readings[np.argmax(np.abs(readings[:, axis_idx])), axis_idx])
+                idx = np.argmax(np.abs(readings).max(axis=0))
+                print("\n" + k + " axis idx: ", idx)
+                self.sticks[k]["idx"] = int(idx)
+                self.sticks[k]["sign_reversed"] = np.sign(readings[np.argmax(np.abs(readings[:, idx])), idx])
                 readings = norm_record(t_sec=3, text="\ncenter all sticks\n")
                 center = np.vstack((center, get_center(readings).reshape(1, -1)))
             print(self.sticks)
             center = center.mean(axis=0)
             for i, k in enumerate(self.sticks.keys()):
-                self.sticks[k]["center"] = center[self.sticks[k]["axis_idx"]]
+                self.sticks[k]["center"] = center[self.sticks[k]["idx"]]
 
             self.save_calibration(dict_to_write={
                 "active_axes": self.active_axes.tolist(),
@@ -164,11 +165,11 @@ class Joystick:
         t0 = time()
         self.calib_reading = self.norm_read()
         for i, k in enumerate(self.sticks.keys()):
-            self.calib_reading[self.sticks[k]["axis_idx"]] *= self.sticks[k]["sign_reversed"]
-            if self.calib_reading[self.sticks[k]["axis_idx"]] <= self.sticks[k]["center"]:
-                self.calib_reading[self.sticks[k]["axis_idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["axis_idx"]], -1, self.sticks[k]["center"], -1, 0)
+            self.calib_reading[self.sticks[k]["idx"]] *= self.sticks[k]["sign_reversed"]
+            if self.calib_reading[self.sticks[k]["idx"]] <= self.sticks[k]["center"]:
+                self.calib_reading[self.sticks[k]["idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["idx"]], -1, self.sticks[k]["center"], -1, 0)
             else:
-                self.calib_reading[self.sticks[k]["axis_idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["axis_idx"]], self.sticks[k]["center"], 1, 0, 1)
+                self.calib_reading[self.sticks[k]["idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["idx"]], self.sticks[k]["center"], 1, 0, 1)
         return self.calib_reading
 
 

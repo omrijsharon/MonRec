@@ -212,6 +212,7 @@ class Joystick:
                 "max_vals": self.max_vals.tolist(),
                 "sign_reverse": self.sign_reverse.tolist()
                 }, full_path=calibration_file_path)
+        self.calib = True
 
     def save_calibration(self, dict_to_write, full_path):
         os.path.exists(os.path.dirname(full_path)) or os.makedirs(os.path.dirname(full_path))
@@ -229,14 +230,14 @@ class Joystick:
 
     def calib_read(self):
         # t0 = time()
-        self.calib_reading = self.norm_read()[0]
+        self.calib_reading = self.norm_read()[0] * self.sign_reverse
         for i, k in enumerate(self.sticks.keys()):
             # self.calib_reading[self.sticks[k]["idx"]] *= self.sticks[k]["sign_reversed"]
             if self.calib_reading[self.sticks[k]["idx"]] <= self.sticks[k]["center"]:
                 self.calib_reading[self.sticks[k]["idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["idx"]], -1, self.sticks[k]["center"], -1, 0)
             else:
                 self.calib_reading[self.sticks[k]["idx"]] = self.mapFromTo(self.calib_reading[self.sticks[k]["idx"]], self.sticks[k]["center"], 1, 0, 1)
-        return self.calib_reading * self.sign_reverse
+        return self.calib_reading
 
 
 if __name__ == '__main__':

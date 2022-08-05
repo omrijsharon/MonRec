@@ -14,7 +14,7 @@ queue_rc = Queue()
 queue_frames = Queue()
 
 
-def save_frames_from_queue(queue_frames, path, type="png", compression=9):
+def save_frames_from_queue(queue_frames, path, resolution, type="png", compression=9):
     assert isinstance(compression, int), "compression must be an integer."
     if type == "png":
         assert 9 >= compression >= 0, "png compression must be between 0 and 9."
@@ -26,10 +26,16 @@ def save_frames_from_queue(queue_frames, path, type="png", compression=9):
         raise ValueError("type must be either 'png' or 'jpg'.")
     os.path.exists(path) or os.makedirs(path)
     while True:
-        timestamp, frame = queue_frames.get()
-        if frame is None:
+        # sleep(0.05)
+        timestamp, rgb = queue_frames.get()
+        # print("q_size:", queue_frames.qsize())
+        if rgb is None:
             break
-        filename = timestamp.strftime("%Y%m%d_%H%M%S.%f") + ".png"
+        frame = np.frombuffer(rgb, np.uint8).reshape(resolution["height"], resolution["width"], 3)[:, :, ::-1]
+        # filename = timestamp.strftime("%Y%m%d_%H%M%S.%f") + f".{type}"
+        filename = str(timestamp).split(".")
+        filename[1] = filename[1][::-1].zfill(6)[::-1]
+        filename = "_".join(filename) + f".{type}"
         cv2.imwrite(os.path.join(path, filename), frame, type_compression)
 
 
@@ -43,7 +49,7 @@ def col_names(calib_file):
     return names
 
 
-def save_sticks_from_queue(queue_rc, path, calib_file, stop_func, queue_frames, buffer_size=64):
+def save_sticks_from_queue(queue_rc, path, calib_file, stop_func, queue_frames, num_frame_workers=8, buffer_size=64):
     os.path.exists(path) or os.makedirs(path)
     shutil.copy2(calib_file, os.path.join(path, "calib_file.json"))
     df = pd.DataFrame(columns=["timestamp", *col_names(calib_file)])
@@ -52,18 +58,19 @@ def save_sticks_from_queue(queue_rc, path, calib_file, stop_func, queue_frames, 
     while True:
         timestamp, sticks = queue_rc.get()
         if stop_func(sticks) is True:
-            queue_frames.put((timestamp, None))
+            for _ in range(num_frame_workers):
+                queue_frames.put((timestamp, None))
             break
-        buffer[i % buffer_size, 0] = timestamp.timestamp()
+        buffer[i % buffer_size, 0] = timestamp
         buffer[i % buffer_size, 1:] = sticks.reshape(-1)
         i += 1
         if i % buffer_size == 0:
-            df = df.append(pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(buffer_size)))
+            df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(buffer_size))))
             df.to_csv(os.path.join(path, "sticks.csv"), index=False)
             i = 0
     # when breaking out of the loop, save the last buffer
     buffer = buffer[:i % buffer_size, :]
-    df = df.append(pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(buffer_size)))
+    df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(buffer_size))))
     df.to_csv(os.path.join(path, "sticks.csv"), index=False)
 
 
@@ -76,16 +83,6 @@ def str_to_datetime(datetime_str, strfmt="%Y%m%d%H%M%S%f"):
 
 
 if __name__ == '__main__':
-    rc = Joystick()
-    run = rc.status
-    calib_file = r'C:\Users\omrijsharon\Documents\repos\MonRec\config\frsky.json'
-    rc.calibrate(calib_file, load_calibration_file=True)
-    buffer_size = 64
-    df = pd.DataFrame(columns=["timestamp", *col_names(calib_file)], index=range(buffer_size))
-    buffer = np.zeros(shape=(buffer_size, 1 + 6))
-    for i in range(buffer_size):
-        readings = rc.calib_read()
-        buffer[i, 0] = datetime.now().timestamp()
-        buffer[i, 1:] = readings
-        sleep(1e-3)
-    df.loc[:] = buffer
+    path = r'C:\Users\omrijsharon\Documents\fpv\tryp_rec'
+    resolution = {"width": 1280, "height": 720}
+    save_frames_from_queue(queue_frames, path, resolution, type="png", compression=6)

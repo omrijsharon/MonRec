@@ -1,11 +1,15 @@
+import os
 import numpy as np
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Event
 from grab_to_queues import grab_frames_to_queue, grab_sticks_to_queue
 from save_from_queues import save_frames_from_queue, save_sticks_from_queue
 from time import sleep
+from datetime import datetime
 from functools import partial
-
+from tqdm import tqdm
 from utils.json_helper import json_reader
+from utils.record_summary import full_summary
+from get_sticks import Joystick
 
 
 def stop_func(calib_readings, calib_dict, switch: str, stop_value: float):
@@ -14,53 +18,78 @@ def stop_func(calib_readings, calib_dict, switch: str, stop_value: float):
 
 
 def main():
-    # define queues
-    queue_frames = Queue()
-    queue_sticks = Queue()
-
     # Parameters
     resolution = {'width': 1280, 'height': 720}
     num_workers = 2
     buffer_size = 64
-    path = r'C:\Users\omrijsharon\Documents\fpv\tryp_rec'
+    base_path = r'C:\Users\omrijsharon\Documents\fpv\tryp_rec'
     calib_file = r"C:\Users\omrijsharon\Documents\repos\MonRec\config\frsky.json"
     calib_dict = json_reader(calib_file)
     stop_switch = "switch1"
     stop_value = -1.0
     partial_stop_func = partial(stop_func, calib_dict=calib_dict, switch=stop_switch, stop_value=stop_value)
+    quit_switch = "switch2"
+    quit_value = 1.0
+    partial_quit_func = partial(stop_func, calib_dict=calib_dict, switch=quit_switch, stop_value=quit_value)
     type = "jpg"
     compression = 70
 
-    # init processes
-    p_grab_frames = Process(target=grab_frames_to_queue, args=(queue_frames, resolution, 0))
-    p_save_frames = [Process(target=save_frames_from_queue, args=(queue_frames, path, resolution, type, compression)) for _ in range(num_workers)]
-    p_grab_sticks = Process(target=grab_sticks_to_queue, args=(queue_sticks,))
-    p_save_sticks = Process(target=save_sticks_from_queue, args=(queue_sticks, path, calib_file, partial_stop_func, queue_frames, num_workers, buffer_size))
+    stop_grab_event = Event()
+    # sticks initialization
+    joystick = Joystick()
+    run = joystick.status
+    joystick.calibrate(calib_file, load_calibration_file=True)
 
-    # start processes
-    [p.start() for p in p_save_frames]
-    p_save_sticks.start()
-    p_grab_frames.start()
-    p_grab_sticks.start()
+    for r in range(3):
+        queue_frames = Queue()
+        queue_sticks = Queue()
+        path = os.path.join(base_path, datetime.now().strftime("%Y%m%d_%H%M%S"))
+        counter = 0
+        quit = False
+        while counter < 10:
+            counter += 1 * (not partial_stop_func(joystick.calib_read()))
+            quit = partial_quit_func(joystick.calib_read())
+            if quit:
+                break
+        if quit:
+            break
+        sleep(1)
+        print("Start recording #{}".format(r))
+        print("path:  ", path)
+        stop_grab_event.clear()
+        # init frame processes
+        p_grab_frames = Process(target=grab_frames_to_queue, args=(queue_frames, stop_grab_event, resolution, 0))
+        p_grab_frames.daemon = True
+        p_save_frames = [Process(target=save_frames_from_queue, args=(queue_frames, path, stop_grab_event, resolution, type, compression)) for _ in range(num_workers)]
+        # init stick processes
+        p_grab_sticks = Process(target=grab_sticks_to_queue, args=(joystick, queue_sticks, stop_grab_event))
+        p_grab_sticks.daemon = True
+        p_save_sticks = Process(target=save_sticks_from_queue, args=(queue_sticks, path, calib_file, partial_stop_func, stop_grab_event, buffer_size))
 
-    sleep(60)
+        processes_list = [p_grab_frames, p_grab_sticks, p_save_sticks, *p_save_frames]
 
-    # stop processes
-    p_grab_frames.terminate()
-    p_grab_sticks.terminate()
-    print("queue_frames.qsize() : ", queue_frames.qsize(), "      queue_sticks.qsize() : ", queue_sticks.qsize())
-    queue_sticks.put_nowait((None, stop_value * np.ones(6)))
-    # [queue_frames.put((None, None)) for _ in range(num_workers)]
+        # start processes
+        [p.start() for p in processes_list]
+        while stop_grab_event.is_set() is False:
+            pass
+        sleep(0.5)
 
-    # wait for processes to finish
-    [p.join() for p in p_save_frames]
-    print("queue_frames.qsize() : ", queue_frames.qsize(), "      queue_sticks.qsize() : ", queue_sticks.qsize())
-    # save_sticks_from_queue(sticks_queue)
-    p_grab_frames.join()
+        #stop processes and join
+        [p.terminate() for p in processes_list if p.is_alive()]
+        [p.kill() for p in processes_list if p.is_alive()]
+        [p.join() for p in processes_list]
+        [p.close() for p in processes_list]
+        try:
+            while not queue_frames.empty():
+                queue_frames.get_nowait()
+            while not queue_sticks.empty():
+                queue_frames.get_nowait()
+        except Exception as e:
+            print(e)
+        queue_frames.close()
+        queue_sticks.close()
+        full_summary(path)
 
-    # TODO(omri): Test sticks recording and reading from file
-    # TODO(omri): Empty the queues and check when to start recording again
-    # TODO(omri): Check when to quit the program (using the other switch)
     # TODO(omri): Add UI
 
 

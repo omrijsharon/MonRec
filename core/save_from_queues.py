@@ -14,7 +14,7 @@ queue_rc = Queue()
 queue_frames = Queue()
 
 
-def save_frames_from_queue(queue_frames, path, resolution, type="png", compression=9):
+def save_frames_from_queue(queue_frames, path, stop_grab_event, resolution, type="png", compression=9):
     assert isinstance(compression, int), "compression must be an integer."
     if type == "png":
         assert 9 >= compression >= 0, "png compression must be between 0 and 9."
@@ -29,7 +29,8 @@ def save_frames_from_queue(queue_frames, path, resolution, type="png", compressi
         # sleep(0.05)
         timestamp, rgb = queue_frames.get()
         # print("q_size:", queue_frames.qsize())
-        if rgb is None:
+        if stop_grab_event.is_set():
+            print("Stopping frame saver pid ", os.getpid())
             break
         frame = np.frombuffer(rgb, np.uint8).reshape(resolution["height"], resolution["width"], 3)[:, :, ::-1]
         # filename = timestamp.strftime("%Y%m%d_%H%M%S.%f") + f".{type}"
@@ -49,19 +50,24 @@ def col_names(calib_file):
     return names
 
 
-def save_sticks_from_queue(queue_rc, path, calib_file, stop_func, queue_frames, num_frame_workers=8, buffer_size=64):
+def save_sticks_from_queue(queue_sticks, path, calib_file, stop_func, stop_grab_event, buffer_size=64):
     os.path.exists(path) or os.makedirs(path)
     shutil.copy2(calib_file, os.path.join(path, "calib_file.json"))
     df = pd.DataFrame(columns=["timestamp", *col_names(calib_file)])
     buffer = np.zeros(shape=(buffer_size, 1+6))
     i = 0
+    counter = 0
     while True:
-        timestamp, sticks = queue_rc.get()
-        if stop_func(sticks) is True:
-            print("Stopping...")
-            for _ in range(num_frame_workers):
-                queue_frames.put((timestamp, None))
-            break
+        timestamp, sticks = queue_sticks.get()
+        if stop_func(sticks):
+            counter += 1
+            if counter > 10:
+                print("Stopping sticks saver pid ", os.getpid())
+                stop_grab_event.set()
+                break
+            # for _ in range(num_frame_workers):
+            #     queue_frames.put((timestamp, None))
+
         buffer[i % buffer_size, 0] = timestamp
         buffer[i % buffer_size, 1:] = sticks.reshape(-1)
         i += 1
@@ -69,11 +75,12 @@ def save_sticks_from_queue(queue_rc, path, calib_file, stop_func, queue_frames, 
             df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(buffer_size))))
             df.to_csv(os.path.join(path, "sticks.csv"), index=False)
             i = 0
-            print("queue_rc size:", queue_rc.qsize())
+            # print("queue_rc size:", queue_rc.qsize())
     # when breaking out of the loop, save the last buffer
     buffer = buffer[:i % buffer_size, :]
-    df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(buffer_size))))
-    df.to_csv(os.path.join(path, "sticks.csv"), index=False)
+    if len(buffer) > 0:
+        df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(len(buffer)))))
+        df.to_csv(os.path.join(path, "sticks.csv"), index=False)
 
 
 def datetime_to_str(datetime_obj, strfmt="%Y%m%d%H%M%S%f"):

@@ -1,14 +1,11 @@
-from multiprocessing import Process, Queue
 import os
 import mss
 import mss.tools
 from datetime import datetime
 from time import perf_counter, sleep
 
-from get_sticks import Joystick
 
-
-def grab_frames_to_queue(queue_frames, resolution, monitor_number=0):
+def grab_frames_to_queue(queue_frames, stop_grab_event, resolution, monitor_number=0):
     with mss.mss() as sct:
         mon = sct.monitors[monitor_number]
         monitor_middle = dict(width=int(mon["width"] / 2), height=int(mon["height"] / 2))
@@ -20,10 +17,13 @@ def grab_frames_to_queue(queue_frames, resolution, monitor_number=0):
             "height": resolution["height"],
             "mon": monitor_number,
         }
-        # while True:
-        for i in range(500):
+        while True:
+        # for i in range(500):
             # img_byte = sct.grab(monitor)
             queue_frames.put_nowait((datetime.now().timestamp(), sct.grab(monitor).rgb))
+            if stop_grab_event.is_set():
+                print("Stopping frame grabber pid ", os.getpid())
+                break
             # img = np.frombuffer(img_byte.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)[:, :, ::-1]
             # cv2.imshow("Output", img)
             # k = cv2.waitKey(1)
@@ -31,15 +31,14 @@ def grab_frames_to_queue(queue_frames, resolution, monitor_number=0):
             #     break
 
 
-def grab_sticks_to_queue(queue_sticks):
-    rc = Joystick()
-    run = rc.status
-    rc.calibrate(r"C:\Users\omrijsharon\Documents\repos\MonRec\config\frsky.json", load_calibration_file=True)
+def grab_sticks_to_queue(joystick, queue_sticks, stop_grab_event):
     while True:
-        queue_sticks.put_nowait((datetime.now().timestamp(), rc.calib_read()))
+        queue_sticks.put_nowait((datetime.now().timestamp(), joystick.calib_read()))
+        if stop_grab_event.is_set():
+            print("Stopping stick grabber pid ", os.getpid())
+            break
         sleep(1e-6)
 
 
 if __name__ == '__main__':
-    q = Queue()
-    grab_sticks_to_queue(q)
+    pass

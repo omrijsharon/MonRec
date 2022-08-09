@@ -1,6 +1,6 @@
 import os
 import cv2
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Event
 from datetime import datetime
 from time import sleep
 import numpy as np
@@ -50,36 +50,31 @@ def col_names(calib_file):
     return names
 
 
-def save_sticks_from_queue(queue_sticks, path, calib_file, stop_func, stop_grab_event, buffer_size=64):
+def save_sticks_from_queue(queue_sticks, path, calib_file, stop_grab_event: Event, buffer_size=64):
     os.path.exists(path) or os.makedirs(path)
     shutil.copy2(calib_file, os.path.join(path, "calib_file.json"))
-    df = pd.DataFrame(columns=["timestamp", *col_names(calib_file)])
+    column_names = col_names(calib_file)
+    df = pd.DataFrame(columns=["timestamp", *column_names])
     buffer = np.zeros(shape=(buffer_size, 1+6))
     i = 0
-    counter = 0
     while True:
         timestamp, sticks = queue_sticks.get()
-        if stop_func(sticks):
-            counter += 1
-            if counter > 10:
-                print("Stopping sticks saver pid ", os.getpid())
-                stop_grab_event.set()
-                break
-            # for _ in range(num_frame_workers):
-            #     queue_frames.put((timestamp, None))
+        if stop_grab_event.is_set():
+            print("Stopping sticks saver pid ", os.getpid())
+            break
 
         buffer[i % buffer_size, 0] = timestamp
         buffer[i % buffer_size, 1:] = sticks.reshape(-1)
         i += 1
         if i % buffer_size == 0:
-            df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(buffer_size))))
+            df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *column_names], index=range(buffer_size))))
             df.to_csv(os.path.join(path, "sticks.csv"), index=False)
             i = 0
-            # print("queue_rc size:", queue_rc.qsize())
+
     # when breaking out of the loop, save the last buffer
     buffer = buffer[:i % buffer_size, :]
     if len(buffer) > 0:
-        df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *col_names(calib_file)], index=range(len(buffer)))))
+        df = pd.concat((df, pd.DataFrame(buffer, columns=["timestamp", *column_names], index=range(len(buffer)))))
         df.to_csv(os.path.join(path, "sticks.csv"), index=False)
 
 

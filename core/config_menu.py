@@ -14,62 +14,33 @@ from functools import partial
 from utils.json_helper import json_reader, json_writer
 from utils.record_summary import full_summary
 from get_sticks import Joystick
-
+from copy import deepcopy
 from recording import RecordingManager, init_joystick, listen2sticks
 from functools import partial
 from tabulate import tabulate
 
 
-
-
-def main():
-    def start_recording():
-        rec_manager.update_config(config)
-        rec_manager.start_recording()
-        lbl_recording_status.config(text="Recording")
-
-    def stop_recording():
-        lbl_recording_status.config(text="Stopping record...")
-        data, headers = rec_manager.stop_recording()
-        lbl_recording_status.config(text=tabulate(data, headers=headers))
+def config_menu(root, config, config_file_path):
 
     def save_config():
         json_writer(config, config_file_path)
         if os.path.exists(config_file_path):
-            messagebox.showinfo("Info", f"Configuration saved\n {config}")
+            messagebox.showinfo("Info", f"Configuration saved")
+            on_closing()
 
-    def Refresher():
-        if stop_grab_event.is_set() and rec_manager.is_recording:
-            stop_recording()
-        elif not stop_grab_event.is_set() and not rec_manager.is_recording:
-            start_recording()
-        window.after(200, Refresher)
+    def on_closing():
+        if not config == original_config:
+            if messagebox.askyesno("Save", "Save changes?"):
+                save_config()
 
-    window = Tk()
-    window.title("FPV Simulator Recording App")
-    window.geometry('%dx%d+%d+%d' % (480, 480, 0, 0))
+    original_config = deepcopy(config)
+    window = Toplevel()
+    window.wm_transient(root)
+    window.title("Recording Configuration")
+    # window.geometry('%dx%d+%d+%d' % (460, 360, 0, 0))
+    window.geometry('%dx%d' % (460, 360))
     window.resizable(False, False)
-    window.attributes('-topmost', 'false')
-
-    stop_grab_event = mp.Event()
-    stop_grab_event.set()
-    listener_killer_event = mp.Event()
-    config_file_path = os.path.join(os.path.split(os.getcwd())[0], "config", "ui.json")
-    print(config_file_path)
-    if os.path.exists(config_file_path):
-        config = json_reader(config_file_path)
-    else:
-        config = {"rec_dir": "", "calib_file": "", "num_workers": 2, "buffer_size": 64, "type": "jpg", "compression": 70}
-        config.update({"resolution": {"width": 1280, "height": 720}})
-        config.update({"game": "TrypFPV"})
-        config.update({"rates": 3*[[[1.0], [0.7], [0.0]]]})
-
-    config = get_calib_file(window, config)
-    joystick = init_joystick(config)
-    config = get_rec_dir(window, config)
-    rec_manager = RecordingManager(joystick, config, stop_grab_event)
-    sticks_listener = mp.Process(target=listen2sticks, args=(config, joystick, stop_grab_event, listener_killer_event))
-    sticks_listener.start()
+    # window.attributes('-topmost', 'false')
 
     # Rec dir
     x0, y0 = 10, 10
@@ -174,18 +145,9 @@ def main():
     btn_save = Button(window, text="Save", width=60, height=3, command=save_config)
     btn_save.place(x=x0, y=y0)
 
-    # Start Recording
-    x0, y0 = 12, 360
-    lbl_recording_status = Label(window, text="Recording status: Not recording", font=(None, 12))
-    # btn_start_recording = Button(window, text="Start Recording", width=61, height=3)
-    # btn_start_recording.config(command=rec_manager.start_recording)
-    lbl_recording_status.place(x=x0, y=y0)
-
-    Refresher()
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     window.mainloop()
-    stop_listener(sticks_listener, listener_killer_event)
-    #@TODO: add calibration window
-    #@TODO: add summary in start recording lbl (done but ugly)
+
 
 
 def rates(window, config, x0, y0):
@@ -244,6 +206,3 @@ def get_rec_dir(window, config):
             window.destroy()
             break
     return config
-
-if __name__ == '__main__':
-    main()

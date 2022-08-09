@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tabulate import tabulate
+from tkinter import messagebox
 
 
 def frames_summary(path):
@@ -45,16 +46,18 @@ def sticks_summary(path, plot=False):
 
 
 def full_summary(path, plot=False):
-    headers = ["FPS", "Mean [ms]", "std [ms]", "num", "Total recording\ntime [sec]"]
-    print("\nFull summary:\n----------------")
+    headers = ["FPS", "Mean [ms]", "std [ms]", "num", "Total time [sec]"]
+    # print("\nFull summary:\n----------------")
     try:
         fps, frames_mean, frames_std, total_frames, frames_total_time = frames_summary(path)
         rps, sticks_mean, sticks_std, total_readings, sticks_total_time = sticks_summary(path, plot)
         data = [["frames", fps, frames_mean, frames_std, total_frames, frames_total_time],
                 ["sticks", rps, sticks_mean, sticks_std, total_readings, sticks_total_time]]
-        print(tabulate(data, headers=headers))
+        # print(tabulate(data, headers=headers))
+        # messagebox.showinfo("Summary", tabulate(data, headers=headers))
     except Exception as e:
         print(e)
         data = [["frames", "N/A", "N/A", "N/A", "N/A", "N/A"],
                 ["sticks", "N/A", "N/A", "N/A", "N/A", "N/A"]]
-        print(tabulate(data, headers=headers))
+        # messagebox.showerror("Summary", tabulate(data, headers=headers))
+    return data, headers

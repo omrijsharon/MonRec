@@ -24,6 +24,7 @@ class RecordingManager:
         self.calib_file = config.get("calib_file")
         self.buffer_size = config.get("buffer_size")
         self.base_path = config.get("rec_dir")
+        self.game = config.get("game")
         self.joystick = joystick
         self.stop_grab_event = stop_grab_event
         self.is_recording = False
@@ -44,9 +45,10 @@ class RecordingManager:
         self.calib_file = config.get("calib_file")
         self.buffer_size = config.get("buffer_size")
         self.base_path = config.get("rec_dir")
+        self.game = config.get("game")
 
     def get_a_path(self):
-        return os.path.join(self.base_path, datetime.now().strftime("%Y%m%d_%H%M%S"))
+        return os.path.join(self.base_path, self.game, datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     def reset(self):
         self.path = self.get_a_path()
@@ -77,9 +79,10 @@ class RecordingManager:
             self.terminate_processes()
             self.terminate_queues()
             self.is_recording = False
-            full_summary(self.path)
+            return full_summary(self.path)
         else:
             messagebox.showerror("Error", "No recording in progress")
+            return None
 
     def terminate_queues(self):
         queues = [self.queue_frames, self.queue_sticks]
@@ -104,69 +107,6 @@ def stop_func(calib_readings, calib_dict, switch: str, stop_value: float):
     return calib_readings[idx] == stop_value
 
 
-def start_recording(joystick, config, btn_start_recording, stop_grab_event):
-    stop_grab_event.clear()
-    # Initialize queues
-    queue_frames = Queue()
-    queue_sticks = Queue()
-
-    # Parameters
-    resolution = config["resolution"]
-    num_workers = config["num_workers"]
-    buffer_size = config["buffer_size"]
-    base_path = config["rec_dir"]
-    type = config["type"]
-    compression = config["compression"]
-    calib_file = config["calib_file"]
-    if not os.path.exists(calib_file):
-        messagebox.showerror("Error", "Calibration file not found")
-        return None
-        # btn_start_recording["text"] = "Start Recording"
-        # stop_grab_event.set()
-
-    path = os.path.join(base_path, datetime.now().strftime("%Y%m%d_%H%M%S"))
-    sleep(1)
-    print("path:  ", path)
-
-    # init processes
-    p_grab_frames = Process(target=grab_frames_to_queue,
-                            args=(queue_frames, stop_grab_event, resolution, compression, 0), daemon=True)
-    p_grab_sticks = Process(target=grab_sticks_to_queue, args=(joystick, queue_sticks, stop_grab_event), daemon=True)
-    p_save_sticks = Process(target=save_sticks_from_queue,
-                            args=(queue_sticks, path, calib_file, stop_grab_event, buffer_size))
-    p_save_frames = [Process(target=save_frames_from_queue,
-                             args=(queue_frames, path, stop_grab_event, resolution, type, compression)) for _ in
-                     range(num_workers)]
-    processes_list = [p_grab_frames, p_grab_sticks, p_save_sticks, *p_save_frames]
-
-    queues_list = [queue_frames, queue_sticks]
-    partial_stop_recording = partial(stop_recording, processes_list, queues_list, btn_start_recording, path, joystick, config, stop_grab_event)
-    btn_start_recording["text"] = "Stop Recording"
-    btn_start_recording["command"] = partial_stop_recording
-
-    # start processes
-    [p.start() for p in processes_list]
-
-    # wait for processes to get a kill switch.
-    while stop_grab_event.is_set() is False:
-        pass
-    sleep(0.5)
-
-    terminate_processes(processes_list)
-    terminate_queues([queue_frames, queue_sticks])
-    full_summary(path)
-    btn_start_recording["text"] = "Start Recording"
-
-
-def stop_recording(processes_list, queues_list, btn_start_recording, path, joystick, config, stop_grab_event):
-    btn_start_recording["text"] = "Start Recording"
-    partial_start_recording = partial(start_recording, joystick, config, btn_start_recording, stop_grab_event)
-    btn_start_recording.config(command=partial_start_recording)
-    terminate_processes(processes_list)
-    terminate_queues(queues_list)
-    full_summary(path)
-
-
 def init_joystick(config):
     joystick = Joystick()
     run = joystick.status
@@ -175,7 +115,6 @@ def init_joystick(config):
 
 
 def listen2sticks(config, joystick, stop_grab_event: Event, listener_killer_event: Event):
-    print("listen2sticks")
     calib_dict = json_reader(config.get("calib_file"))
     stop_switch = "switch1"
     stop_value = -1.0
@@ -187,10 +126,8 @@ def listen2sticks(config, joystick, stop_grab_event: Event, listener_killer_even
         readings = joystick.calib_read()
         if partial_stop_func(readings) and stop_grab_event.is_set() is False: # joystick said stop, event not stopped yet
             stop_grab_event.set() # so stop
-            print("Stop")
         elif not partial_stop_func(readings) and stop_grab_event.is_set() is True: # joystick said start, event is stoppped
             stop_grab_event.clear() # so start
-            print("Start")
         if listener_killer_event.is_set():
             break
         sleep(0.01)

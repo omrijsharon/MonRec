@@ -58,6 +58,7 @@ class Joystick:
         return np.array([[info.dwXpos, info.dwYpos, info.dwZpos, info.dwRpos, info.dwUpos, info.dwVpos]])
 
     def make_fig_bars(self):
+        # self.read_old(with_buttons=False)
         k = 1
         if self.btns is not None:
             k = 2
@@ -65,7 +66,8 @@ class Joystick:
             plt.imshow(np.array(self.btns, dtype=int).reshape(1, -1))
         plt.subplot(k, 1, 1)
         plt.bar(['X', 'Y', 'Z', 'R', 'U', 'V'], [*self.axisXYZ, *self.axisRUV])
-        plt.ylim(-32767, 32767)
+        # plt.ylim(-32767, 32767)
+        plt.ylim(0, 65535)
 
     def make_fig_axes(self):
         alpha = 0.2
@@ -129,6 +131,7 @@ class Joystick:
         elif load_calibration_file and not os.path.isfile(calibration_file_path):
             raise FileNotFoundError("Calibration file does not exist. Calibration path given: {}".format(calibration_file_path))
 
+        # Calibrate
         else:
             # Check which sticks move
             print("Move the sticks around, all the way to the edges.")

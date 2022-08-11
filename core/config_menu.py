@@ -112,8 +112,8 @@ def config_menu(root, config, config_file_path):
     var_type.set(config.get("type"))
     lbl_type = Label(window, text="Image type:")
     lbl_type.place(x=x0, y=y0)
-    option_menu_type = OptionMenu(window, var_type, "jpg", "png")
-    option_menu_type.place(x=x0+3, y=y0+18)
+    cmb_type = ttk.Combobox(window, textvariable=var_type, width=5, values=["png", "jpg"], state="readonly")
+    cmb_type.place(x=x0+3, y=y0+18)
     var_type.trace("w", lambda name, index, mode, sv=var_type: config.update({"type": sv.get()}))
 
     # compression

@@ -7,6 +7,8 @@ import multiprocessing as mp
 import os
 from tabulate import tabulate
 
+from functools import partial
+from core.calib_menu import calib_menu
 from core.config_menu import get_calib_file, get_rec_dir, stop_listener, config_menu
 from core.recording import init_joystick, RecordingManager, listen2sticks
 from utils.json_helper import json_reader, json_writer
@@ -109,7 +111,7 @@ def main():
     btn_config = Button(root, text="Configure\nRecording", width=btn_width, height=btn_height, font=font, command=start_config_menu)
     btn_config.place(x=x0 + btn_x_dist*1, y=y0)
 
-    btn_calib = Button(root, text="Calibrate\nsticks", width=btn_width, height=btn_height, font=font)
+    btn_calib = Button(root, text="Calibrate\nsticks", width=btn_width, height=btn_height, command=partial(calib_menu, root, joystick, config["calib_file"]), font=font)
     btn_calib.place(x=x0 + btn_x_dist*2, y=y0)
 
     lbl_recording_status = Label(root, text="Status:", font=font)

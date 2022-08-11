@@ -51,12 +51,12 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
         return {name.get(): idx for idx, name in enumerate(var_sticks)}
 
     def norm_stick(readings, idx):
-        invert = 2 * var_invert[idx].get() - 1
+        invert = -2 * var_invert[idx].get() + 1
         scale = vars_max[idx].get() - vars_min[idx].get()
         if scale == 0:
             scale = 1
         zero2one = (readings[idx] - vars_min[idx].get()) / scale
-        return (zero2one * 2 - 1) * -invert
+        return (zero2one * 2 - 1) * invert
 
     def plot_mapped_sticks(readings):
         alpha = 0.2
@@ -100,8 +100,26 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
                 vars_max[i.item()].set(readings[i.item()])
         # print(vals_min, vals_max)
 
-    def save_config():
+    def center_sticks(readings):
         pass
+
+    def save_calib():
+        sticks = {name.get(): {"idx": idx, "center": center} for idx, name in enumerate(var_sticks)}
+        del sticks["AUX1"], sticks["AUX1"]
+        switches = {name.get(): {"idx": idx} for idx, name in enumerate(var_sticks)}
+        del switches["Throttle"], switches["Roll"], switches["Pitch"], switches["Yaw"]
+        vals_min = [var_min.get() for var_min in vars_min]
+        vals_max = [var_max.get() for var_max in vars_max]
+        invert = [-2 * vinvert.get() + 1 for vinvert in var_invert]
+        dict_to_write = {
+            "sticks": sticks,
+            "switches": switches,
+            "min_vals": vals_min,
+            "max_vals": vals_max,
+            "sign_reverse": invert
+        }
+        joystick.save_calibration(dict_to_write=dict_to_write, full_path=var_calib_file.get())
+        joystick.update(**dict_to_write)
 
     def Refresher():
         readings = joystick.read()[0]
@@ -156,7 +174,13 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
     cmb_sticks = [ttk.Combobox(window, textvariable=var_stick, values=stick_names, postcommand=partial(set_last_stick, var_stick), state="readonly", width=6) for var_stick in var_sticks]
     [cmb_stick.bind("<<ComboboxSelected>>", partial(axes_swap, idx, cmb_stick)) for idx, cmb_stick in enumerate(cmb_sticks)]
     [cmb_stick.place(x=29 + i*61, y=236) for i, cmb_stick in enumerate(cmb_sticks)]
-    map_dict = get_map_dict()
+
+    # Center sticks
+    var_center_sticks = [StringVar() for i in range(n_sticks)]
+    btn_center_sticks = Button(window, text="Center sticks", command=partial(center_sticks), width=10)
+    btn_center_sticks.place(x=29, y=460)
+
+
 
     # axes inversion checkboxes
     var_invert = [IntVar() for _ in range(n_sticks)]
@@ -170,7 +194,7 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
     vars_max = [IntVar(value=readings[i]) for i in range(n_sticks)]
 
     # save button
-    btn_save = Button(window, text="Save", command=save_config, width=10)
+    btn_save = Button(window, text="Save", command=save_calib, width=10)
     btn_save.place(x=308, y=460)
 
     #@TODO: Center sticks

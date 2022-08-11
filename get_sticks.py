@@ -86,7 +86,7 @@ class Joystick:
         plt.xlim(-1, 1)
         plt.ylim(-1, 1)
         plt.subplot(1, 3, 3)
-        plt.bar(list(self.switches.keys()), [self.calib_reading[self.switches["switch1"]["idx"]], self.calib_reading[self.switches["switch2"]["idx"]]])
+        plt.bar(list(self.switches.keys()), [self.calib_reading[self.switches["AUX1"]["idx"]], self.calib_reading[self.switches["AUX2"]["idx"]]])
         plt.ylim(-1, 1)
 
     def render_bars(self):
@@ -181,7 +181,7 @@ class Joystick:
             for i, k in enumerate(self.sticks.keys()):
                 self.sticks[k]["center"] = center[self.sticks[k]["idx"]]
 
-            self.switches = {"switch1": {}, "switch2": {}}
+            self.switches = {"AUX1": {}, "AUX2": {}}
             commands = ["off", "on"]
             for i, k in enumerate(self.switches.keys()):
                 # Identify switches
@@ -215,6 +215,14 @@ class Joystick:
                 "max_vals": self.max_vals.tolist(),
                 "sign_reverse": self.sign_reverse.tolist()
                 }, full_path=calibration_file_path)
+        self.calib = True
+
+    def update(self, sticks, switches, min_vals, max_vals, sign_reverse):
+        self.sticks = sticks
+        self.switches = switches
+        self.min_vals = min_vals
+        self.max_vals = max_vals
+        self.sign_reverse = sign_reverse
         self.calib = True
 
     def save_calibration(self, dict_to_write, full_path):

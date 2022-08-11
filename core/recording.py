@@ -116,10 +116,10 @@ def init_joystick(config):
 
 def listen2sticks(config, joystick, stop_grab_event: Event, listener_killer_event: Event):
     calib_dict = json_reader(config.get("calib_file"))
-    stop_switch = "switch1"
+    stop_switch = "AUX1"
     stop_value = -1.0
     partial_stop_func = partial(stop_func, calib_dict=calib_dict, switch=stop_switch, stop_value=stop_value)
-    # quit_switch = "switch2"
+    # quit_switch = "AUX2"
     # quit_value = 1.0
     # partial_quit_func = partial(stop_func, calib_dict=calib_dict, switch=quit_switch, stop_value=quit_value)
     while True:

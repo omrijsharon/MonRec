@@ -74,14 +74,14 @@ class Joystick:
         plt.subplot(1, 3, 1)
         plt.plot([-1, 1], [0, 0], 'b', lw=3, alpha=alpha)
         plt.plot([0, 0], [-1, 1], 'b', lw=3, alpha=alpha)
-        plt.scatter(self.calib_reading[self.sticks["yaw"]["idx"]], self.calib_reading[self.sticks["throttle"]["idx"]])
+        plt.scatter(self.calib_reading[self.sticks["Yaw"]["idx"]], self.calib_reading[self.sticks["Throttle"]["idx"]])
         plt.axis('square')
         plt.xlim(-1, 1)
         plt.ylim(-1, 1)
         plt.subplot(1, 3, 2)
         plt.plot([-1, 1], [0, 0], 'b', lw=3, alpha=alpha)
         plt.plot([0, 0], [-1, 1], 'b', lw=3, alpha=alpha)
-        plt.scatter(self.calib_reading[self.sticks["roll"]["idx"]], self.calib_reading[self.sticks["pitch"]["idx"]])
+        plt.scatter(self.calib_reading[self.sticks["Roll"]["idx"]], self.calib_reading[self.sticks["Pitch"]["idx"]])
         plt.axis('square')
         plt.xlim(-1, 1)
         plt.ylim(-1, 1)
@@ -119,7 +119,7 @@ class Joystick:
                     break
             return readings[-i + 1:].mean(axis=0, keepdims=True)
 
-        if load_calibration_file and os.path.isfile(calibration_file_path):
+        if load_calibration_file and os.path.exists(calibration_file_path):
             calib_file = json_reader(calibration_file_path)
             # self.active_axes = np.array(calib_file["active_axes"])
             self.min_vals = np.array(calib_file["min_vals"])
@@ -165,7 +165,7 @@ class Joystick:
             readings = norm_record(t_sec=2, text="center all sticks")
             center = get_center(readings)
 
-            self.sticks = {"throttle": {}, "yaw": {}, "pitch": {}, "roll": {}}
+            self.sticks = {"Throttle": {}, "Yaw": {}, "Pitch": {}, "Roll": {}}
             commands = ["up", "to the right"]
             for i, k in enumerate(self.sticks.keys()):
                 readings = norm_record(t_sec=5, text="\nMove the " + k + " stick " + commands[i % 2])
@@ -229,10 +229,16 @@ class Joystick:
         os.path.exists(os.path.dirname(full_path)) or os.makedirs(os.path.dirname(full_path))
         json_writer(dict_to_write, full_path)
 
-    def load_calibration(self, path):
-        json_reader(path)
+    def load_calibration(self, calibration_file_path):
+        calib_file = json_reader(calibration_file_path)
+        self.min_vals = np.array(calib_file["min_vals"])
+        self.max_vals = np.array(calib_file["max_vals"])
+        self.sticks = calib_file["sticks"]
+        self.switches = calib_file["switches"]
+        self.sign_reverse = calib_file["sign_reverse"]
 
-    def mapFromTo(self, x, a, b, c, d):
+    @staticmethod
+    def mapFromTo(x, a, b, c, d):
         y = (x - a) / (b - a) * (d - c) + c
         return y
 

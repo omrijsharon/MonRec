@@ -85,7 +85,7 @@ def main():
     stop_grab_event.set()
     listener_killer_event = mp.Event()
     config_file_path = os.path.join(os.path.split(os.getcwd())[0], "config", "ui.json")
-    print(config_file_path)
+    # print(config_file_path)
     if os.path.exists(config_file_path):
         config = json_reader(config_file_path)
         #@TODO: check if config is valid
@@ -125,7 +125,6 @@ def main():
     Refresher()
     root.protocol("WM_DELETE_WINDOW", quit_app)
     root.mainloop()
-    #@TODO: add calibration window
     #@TODO: add summary in start recording lbl (done but ugly)
 
 

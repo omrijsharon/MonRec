@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from time import sleep
 from functools import partial
 from tkinter import *
 from tkinter import ttk
@@ -58,14 +59,31 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
         zero2one = (readings[idx] - vars_min[idx].get()) / scale
         return (zero2one * 2 - 1) * invert
 
+    def norm_map(readings):
+        map_dict = get_map_dict()
+        return {axis_name: norm_stick(readings, map_dict[axis_name]) for (i, axis_name) in enumerate(stick_names)}
+
+    def calib_map(readings):
+        norm_readings = norm_map(readings)
+        for i, k in enumerate(norm_readings.keys()):
+            if "AUX" not in k:
+                if norm_readings[k] <= var_center_sticks[k].get():
+                    norm_readings[k] = joystick.mapFromTo(norm_readings[k], -1, var_center_sticks[k].get(), -1, 0)
+                else:
+                    norm_readings[k] = joystick.mapFromTo(norm_readings[k], var_center_sticks[k].get(), 1, 0, 1)
+        return norm_readings
+
     def plot_mapped_sticks(readings):
         alpha = 0.2
-        map_dict = get_map_dict()
+        if var_is_center.get():
+            calib_readings = calib_map(readings)
+        else:
+            calib_readings = norm_map(readings)
         for i, (x_axis_name, y_axis_name) in enumerate([["Yaw", "Throttle"],["Roll", "Pitch"]]):
             ax_mapped_sticks[i].clear()
             ax_mapped_sticks[i].plot([-1, 1], [0, 0], 'b', lw=3, alpha=alpha)
             ax_mapped_sticks[i].plot([0, 0], [-1, 1], 'b', lw=3, alpha=alpha)
-            ax_mapped_sticks[i].scatter(norm_stick(readings, map_dict[x_axis_name]), norm_stick(readings, map_dict[y_axis_name]), s=100, c="r", alpha=alpha)
+            ax_mapped_sticks[i].scatter(calib_readings[x_axis_name], calib_readings[y_axis_name], s=100, c="r", alpha=alpha)
             ax_mapped_sticks[i].axis("square")
             ax_mapped_sticks[i].yaxis.set_major_locator(plt.NullLocator())
             ax_mapped_sticks[i].xaxis.set_major_locator(plt.NullLocator())
@@ -100,14 +118,29 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
                 vars_max[i.item()].set(readings[i.item()])
         # print(vals_min, vals_max)
 
-    def center_sticks(readings):
-        pass
+    def center_sticks():
+        readings = joystick.read()
+        for _ in range(30):
+            readings = np.vstack((readings, joystick.read()))
+            sleep(1e-6)
+        readings = readings[1:]
+        readings = np.mean(readings, axis=0)
+        calib_readings = norm_map(readings)
+        for k, v in var_center_sticks.items():
+            v.set(calib_readings[k])
+        var_is_center.set(True)
 
     def save_calib():
-        sticks = {name.get(): {"idx": idx, "center": center} for idx, name in enumerate(var_sticks)}
-        del sticks["AUX1"], sticks["AUX1"]
-        switches = {name.get(): {"idx": idx} for idx, name in enumerate(var_sticks)}
-        del switches["Throttle"], switches["Roll"], switches["Pitch"], switches["Yaw"]
+        sticks = {
+            name.get():
+                {
+                    "idx": idx,
+                    "center": var_center_sticks[name.get()].get()
+                }
+            for idx, name in enumerate(var_sticks)
+            if "AUX" not in name.get()
+        }
+        switches = {name.get(): {"idx": idx} for idx, name in enumerate(var_sticks) if "AUX" in name.get()}
         vals_min = [var_min.get() for var_min in vars_min]
         vals_max = [var_max.get() for var_max in vars_max]
         invert = [-2 * vinvert.get() + 1 for vinvert in var_invert]
@@ -120,6 +153,8 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
         }
         joystick.save_calibration(dict_to_write=dict_to_write, full_path=var_calib_file.get())
         joystick.update(**dict_to_write)
+        var_is_saved.set(True)
+        messagebox.showinfo("Calibration saved", "Calibration saved to {}".format(var_calib_file.get()), icon="info")
 
     def Refresher():
         readings = joystick.read()[0]
@@ -175,13 +210,6 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
     [cmb_stick.bind("<<ComboboxSelected>>", partial(axes_swap, idx, cmb_stick)) for idx, cmb_stick in enumerate(cmb_sticks)]
     [cmb_stick.place(x=29 + i*61, y=236) for i, cmb_stick in enumerate(cmb_sticks)]
 
-    # Center sticks
-    var_center_sticks = [StringVar() for i in range(n_sticks)]
-    btn_center_sticks = Button(window, text="Center sticks", command=partial(center_sticks), width=10)
-    btn_center_sticks.place(x=29, y=460)
-
-
-
     # axes inversion checkboxes
     var_invert = [IntVar() for _ in range(n_sticks)]
     [var_invert[i].set(0) for i in range(n_sticks)]
@@ -193,12 +221,24 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
     vars_min = [IntVar(value=readings[i]) for i in range(n_sticks)]
     vars_max = [IntVar(value=readings[i]) for i in range(n_sticks)]
 
+    # Center sticks
+    var_is_center = BooleanVar()
+    var_is_center.set(False)
+    var_center_sticks = {stick_name: DoubleVar() for stick_name in stick_names[:-2]}
+    btn_center_sticks = Button(window, text="Center sticks", command=partial(center_sticks), width=10)
+    btn_center_sticks.place(x=29, y=460)
+
     # save button
+    var_is_saved = BooleanVar()
+    var_is_saved.set(False)
     btn_save = Button(window, text="Save", command=save_calib, width=10)
     btn_save.place(x=308, y=460)
 
-    #@TODO: Center sticks
-
+    if os.path.exists(var_calib_file.get()):
+        joystick.load_calibration(calibration_file_path=var_calib_file.get())
+        var_is_saved.set(True)
+        var_is_center.set(True)
+        #@TODO: load calibration values to vars
     Refresher()
     window.mainloop()
 

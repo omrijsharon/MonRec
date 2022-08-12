@@ -165,7 +165,18 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
                 center_error_str = ""
             messagebox.showerror("Invalid calibration", f"Please move {invalid_names_str} all the way before saving.\n{center_error_str}", icon="error")
 
-    def load_calib_to_ui():
+    def load_calib_to_ui(with_ui=False):
+        if with_ui:
+            calib_file = filedialog.askopenfilename(filetypes=[("Calibration files (*.json)", ".json")], title="Select a calibration file")
+            if not os.path.exists(calib_file):
+                messagebox.showerror("File not found", f"Calibration file {calib_file} not found", icon="error")
+                load_calib_to_ui(with_ui=True)
+            else:
+                window.title("Recording Configuration - {}".format(os.path.split(calib_file)[-1]))
+        else:
+            calib_file = var_calib_file.get()
+        if not joystick.calib:
+            joystick.load_calibration(calibration_file_path=calib_file)
         #min-max
         [var_min.set(int(joystick_min_val)) for joystick_min_val, var_min in zip(joystick.min_vals, vars_min)]
         [var_max.set(int(joystick_max_val)) for joystick_max_val, var_max in zip(joystick.max_vals, vars_max)]
@@ -176,7 +187,18 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
         [var_sticks[v["idx"]].set(k) for k, v in joystick.switches.items()]
         #center
         [var_center_sticks[k].set(v["center"]) for k, v in joystick.sticks.items()]
+        var_is_center.set(True)
+        # saved
+        var_is_saved.set(False)
 
+    def reset_calib():
+        [var_stick.set(stick_names[i]) for i, var_stick in enumerate(var_sticks)]
+        [var_invert[i].set(0) for i in range(n_sticks)]
+        readings = joystick.read()[0]
+        [var_min.set(readings[i]) for i, var_min in enumerate(vars_min)]
+        [var_max.set(readings[i]) for i, var_max in enumerate(vars_max)]
+        var_is_saved.set(False)
+        var_is_center.set(False)
 
     def Refresher():
         readings = joystick.read()[0]
@@ -243,12 +265,20 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
     vars_min = [IntVar(value=readings[i]) for i in range(n_sticks)]
     vars_max = [IntVar(value=readings[i]) for i in range(n_sticks)]
 
+    # Reset Calibration
+    btn_reset = Button(window, text="Reset", command=reset_calib, width=10)
+    btn_reset.place(x=29, y=460)
+
     # Center sticks
     var_is_center = BooleanVar()
     var_is_center.set(False)
     var_center_sticks = {stick_name: DoubleVar() for stick_name in stick_names[:-2]}
     btn_center_sticks = Button(window, text="Center sticks", command=partial(center_sticks), width=10)
-    btn_center_sticks.place(x=29, y=460)
+    btn_center_sticks.place(x=148, y=460)
+
+    # load button
+    btn_load = Button(window, text="Load", command=partial(load_calib_to_ui, True), width=10)
+    btn_load.place(x=228, y=460)
 
     # save button
     var_is_saved = BooleanVar()
@@ -257,14 +287,8 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
     btn_save.place(x=308, y=460)
 
     if os.path.exists(var_calib_file.get()):
-        joystick.load_calibration(calibration_file_path=var_calib_file.get())
-        var_is_saved.set(True)
-        var_is_center.set(True)
-        load_calib_to_ui()
-    elif joystick.calib:
         load_calib_to_ui()
 
-        #@TODO: load calibration values to vars
     Refresher()
     window.mainloop()
 

@@ -1,4 +1,4 @@
-# TODO: not updated. do not use!
+# Not updated. do not use!
 # https://github.com/Rabbid76/python_windows_joystickapi
 import joystickapi
 import numpy as np

@@ -136,9 +136,20 @@ def config_menu(root, config, config_file_path):
     var_game.set(config.get("game"))
     lbl_game = Label(window, text="Game:")
     lbl_game.place(x=x0, y=y0)
-    option_menu_game = OptionMenu(window, var_game, "TrypFPV", "Uncrashed", "Liftoff", "Velocidrone", "DRL")
-    option_menu_game.place(x=x0 + 3, y=y0 + 18)
+    game_names = ["TrypFPV", "Uncrashed", "Liftoff", "Velocidrone", "DRL"]
+    cmb_game = ttk.Combobox(window, textvariable=var_game, width=12, values=game_names, state="readonly")
+    cmb_game.place(x=x0+3, y=y0+18)
     var_game.trace("w", lambda name, index, mode, sv=var_game: config.update({"game": sv.get()}))
+
+    # Arm switch
+    x0, y0 = 314, 220
+    var_arm_switch = StringVar()
+    var_arm_switch.set(config.get("arm_switch"))
+    lbl_arm_switch = Label(window, text="Arm/Rec switch:")
+    lbl_arm_switch.place(x=x0, y=y0)
+    cmb_arm_switch = ttk.Combobox(window, textvariable=var_arm_switch, width=6, values=["AUX1", "AUX2"], state="readonly")
+    cmb_arm_switch.place(x=x0+3, y=y0+18)
+    var_arm_switch.trace("w", lambda name, index, mode, sv=var_arm_switch: config.update({"arm_switch": sv.get()}))
 
     # save
     x0, y0 = 20, 296

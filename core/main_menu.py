@@ -19,6 +19,10 @@ def main():
         btn_config.config(state=DISABLED)
         config_menu(root, config, config_file_path)
 
+    def start_calib_menu():
+        btn_calib.config(state=DISABLED)
+        calib_menu(root, joystick, config["calib_file"])
+
     def check_toplevel_exists():
         return any([isinstance(child, Toplevel) for child in root.winfo_children()])
 
@@ -73,6 +77,7 @@ def main():
             start_recording()
         if not check_toplevel_exists():
             btn_config.config(state=NORMAL)
+            btn_calib.config(state=NORMAL)
         root.after(200, Refresher)
 
     root = Tk()
@@ -93,6 +98,7 @@ def main():
         config = {"rec_dir": "", "calib_file": "", "num_workers": 2, "buffer_size": 64, "type": "jpg", "compression": 70}
         config.update({"resolution": {"width": 1280, "height": 720}})
         config.update({"game": "TrypFPV"})
+        config.update({"arm_switch": "AUX1"})
         config.update({"rates": 3*[[[1.0], [0.7], [0.0]]]})
 
     config = get_calib_file(root, config)
@@ -111,7 +117,7 @@ def main():
     btn_config = Button(root, text="Configure\nRecording", width=btn_width, height=btn_height, font=font, command=start_config_menu)
     btn_config.place(x=x0 + btn_x_dist*1, y=y0)
 
-    btn_calib = Button(root, text="Calibrate\nsticks", width=btn_width, height=btn_height, command=partial(calib_menu, root, joystick, config["calib_file"]), font=font)
+    btn_calib = Button(root, text="Calibrate\nsticks", width=btn_width, height=btn_height, command=start_calib_menu, font=font)
     btn_calib.place(x=x0 + btn_x_dist*2, y=y0)
 
     lbl_recording_status = Label(root, text="Status:", font=font)
@@ -125,7 +131,10 @@ def main():
     Refresher()
     root.protocol("WM_DELETE_WINDOW", quit_app)
     root.mainloop()
-    #@TODO: add summary in start recording lbl (done but ugly)
+    # @TODO: Fix bugs!!! reload config after config menu is closed
+    # @TODO: Fix bugs!!! stop recording after closing app
+    # @TODO: Fix bugs!!! save changes when closing config menu
+    # @TODO: add summary in start recording lbl (done but ugly)
 
 
 if __name__ == '__main__':

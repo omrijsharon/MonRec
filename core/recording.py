@@ -116,7 +116,7 @@ def init_joystick(config):
 
 def listen2sticks(config, joystick, stop_grab_event: Event, listener_killer_event: Event):
     calib_dict = json_reader(config.get("calib_file"))
-    stop_switch = "AUX1"
+    stop_switch = config["arm_switch"]
     stop_value = -1.0
     partial_stop_func = partial(stop_func, calib_dict=calib_dict, switch=stop_switch, stop_value=stop_value)
     # quit_switch = "AUX2"

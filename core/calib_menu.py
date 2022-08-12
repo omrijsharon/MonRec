@@ -131,30 +131,52 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
         var_is_center.set(True)
 
     def save_calib():
-        sticks = {
-            name.get():
-                {
-                    "idx": idx,
-                    "center": var_center_sticks[name.get()].get()
-                }
-            for idx, name in enumerate(var_sticks)
-            if "AUX" not in name.get()
-        }
-        switches = {name.get(): {"idx": idx} for idx, name in enumerate(var_sticks) if "AUX" in name.get()}
-        vals_min = [var_min.get() for var_min in vars_min]
-        vals_max = [var_max.get() for var_max in vars_max]
-        invert = [-2 * vinvert.get() + 1 for vinvert in var_invert]
-        dict_to_write = {
-            "sticks": sticks,
-            "switches": switches,
-            "min_vals": vals_min,
-            "max_vals": vals_max,
-            "sign_reverse": invert
-        }
-        joystick.save_calibration(dict_to_write=dict_to_write, full_path=var_calib_file.get())
-        joystick.update(**dict_to_write)
-        var_is_saved.set(True)
-        messagebox.showinfo("Calibration saved", "Calibration saved to {}".format(var_calib_file.get()), icon="info")
+        valid_list = [var_min.get() < var_max.get() for var_min, var_max in zip(vars_min, vars_max)]
+        if all(valid_list) and var_is_center.get():
+            sticks = {
+                name.get():
+                    {
+                        "idx": idx,
+                        "center": var_center_sticks[name.get()].get()
+                    }
+                for idx, name in enumerate(var_sticks)
+                if "AUX" not in name.get()
+            }
+            switches = {name.get(): {"idx": idx} for idx, name in enumerate(var_sticks) if "AUX" in name.get()}
+            vals_min = [var_min.get() for var_min in vars_min]
+            vals_max = [var_max.get() for var_max in vars_max]
+            invert = [-2 * vinvert.get() + 1 for vinvert in var_invert]
+            dict_to_write = {
+                "sticks": sticks,
+                "switches": switches,
+                "min_vals": vals_min,
+                "max_vals": vals_max,
+                "sign_reverse": invert
+            }
+            joystick.save_calibration(dict_to_write=dict_to_write, full_path=var_calib_file.get())
+            joystick.update(**dict_to_write)
+            var_is_saved.set(True)
+            messagebox.showinfo("Calibration saved", "Calibration saved to {}".format(var_calib_file.get()), icon="info")
+        else:
+            invalid_names_str = ",".join([name.get() for idx, name in enumerate(var_sticks) if not valid_list[idx]])
+            if not var_is_center.get():
+                center_error_str = "Sticks were not centered."
+            else:
+                center_error_str = ""
+            messagebox.showerror("Invalid calibration", f"Please move {invalid_names_str} all the way before saving.\n{center_error_str}", icon="error")
+
+    def load_calib_to_ui():
+        #min-max
+        [var_min.set(int(joystick_min_val)) for joystick_min_val, var_min in zip(joystick.min_vals, vars_min)]
+        [var_max.set(int(joystick_max_val)) for joystick_max_val, var_max in zip(joystick.max_vals, vars_max)]
+        #invert
+        [var_inv.set(int((-joystick_inv+1)/2)) for joystick_inv, var_inv in zip(joystick.sign_reverse, var_invert)]
+        #names
+        [var_sticks[v["idx"]].set(k) for k, v in joystick.sticks.items()]
+        [var_sticks[v["idx"]].set(k) for k, v in joystick.switches.items()]
+        #center
+        [var_center_sticks[k].set(v["center"]) for k, v in joystick.sticks.items()]
+
 
     def Refresher():
         readings = joystick.read()[0]
@@ -238,6 +260,10 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
         joystick.load_calibration(calibration_file_path=var_calib_file.get())
         var_is_saved.set(True)
         var_is_center.set(True)
+        load_calib_to_ui()
+    elif joystick.calib:
+        load_calib_to_ui()
+
         #@TODO: load calibration values to vars
     Refresher()
     window.mainloop()

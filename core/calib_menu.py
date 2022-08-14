@@ -172,7 +172,7 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
                 messagebox.showerror("File not found", f"Calibration file {calib_file} not found", icon="error")
                 load_calib_to_ui(with_ui=True)
             else:
-                window.title("Recording Configuration - {}".format(os.path.split(calib_file)[-1]))
+                window.title("Sticks Calibration - {}".format(os.path.split(calib_file)[-1]))
         else:
             calib_file = var_calib_file.get()
         if not joystick.calib:
@@ -209,7 +209,7 @@ def calib_menu(root, joystick: Joystick, calib_file_path=None):
 
     window = Toplevel()
     window.wm_transient(root)
-    window.title("Recording Configuration")
+    window.title("Sticks Calibration")
     # window.geometry('%dx%d+%d+%d' % (460, 360, 0, 0))
     window.geometry('%dx%d' % (430, 500))
     window.resizable(False, False)

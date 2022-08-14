@@ -19,8 +19,10 @@ from recording import RecordingManager, init_joystick, listen2sticks
 from functools import partial
 from tabulate import tabulate
 
+from recording import stop_func
 
-def config_menu(root, config, config_file_path):
+
+def config_menu(root, joystick, config, config_file_path):
 
     def save_config():
         json_writer(config, config_file_path)
@@ -32,6 +34,14 @@ def config_menu(root, config, config_file_path):
         if not config == original_config:
             if messagebox.askyesno("Save", "Save changes?"):
                 save_config()
+
+    def Refresher():
+        readings = joystick.calib_read()
+        if stop_func(calib_readings=readings, calib_dict=calib_dict, switch=var_arm_switch.get(), stop_value=stop_value):
+            indicator_canvas.itemconfig(oval, fill='#F0F0F0')
+        else:
+            indicator_canvas.itemconfig(oval, fill='red')
+        root.after(200, Refresher)
 
     original_config = deepcopy(config)
     window = Toplevel()
@@ -141,7 +151,7 @@ def config_menu(root, config, config_file_path):
     cmb_game.place(x=x0+3, y=y0+18)
     var_game.trace("w", lambda name, index, mode, sv=var_game: config.update({"game": sv.get()}))
 
-    # Arm switch
+    # Arm/Rec switch
     x0, y0 = 314, 220
     var_arm_switch = StringVar()
     var_arm_switch.set(config.get("arm_switch"))
@@ -150,6 +160,14 @@ def config_menu(root, config, config_file_path):
     cmb_arm_switch = ttk.Combobox(window, textvariable=var_arm_switch, width=6, values=["AUX1", "AUX2"], state="readonly")
     cmb_arm_switch.place(x=x0+3, y=y0+18)
     var_arm_switch.trace("w", lambda name, index, mode, sv=var_arm_switch: config.update({"arm_switch": sv.get()}))
+    indicator_canvas = Canvas(window, width=30, height=30)
+    indicator_canvas.place(x=x0+93, y=y0+8)
+    oval = indicator_canvas.create_oval(2, 2, 27, 27, width=1, fill='#F0F0F0')
+    indicator_canvas.itemconfig(oval, fill='#F0F0F0')
+    #initiate sticks
+    calib_dict = json_reader(config.get("calib_file"))
+    stop_value = -1.0
+
 
     # save
     x0, y0 = 20, 296
@@ -157,8 +175,8 @@ def config_menu(root, config, config_file_path):
     btn_save.place(x=x0, y=y0)
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
+    Refresher()
     window.mainloop()
-
 
 
 def rates(window, config, x0, y0):

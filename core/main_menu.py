@@ -17,14 +17,19 @@ from utils.json_helper import json_reader, json_writer
 def main():
     def start_config_menu():
         btn_config.config(state=DISABLED)
-        config_menu(root, config, config_file_path)
+        stop_listening()
+        var_is_config_menu_open.set(True)
+        config_menu(root, joystick, config, config_file_path)
 
     def start_calib_menu():
         btn_calib.config(state=DISABLED)
+        stop_listening()
+        var_is_calib_menu_open.set(True)
         calib_menu(root, joystick, config["calib_file"])
 
-    def check_toplevel_exists():
-        return any([isinstance(child, Toplevel) for child in root.winfo_children()])
+    def get_toplevel_list():
+        toplevel_list = [child.title() for child in root.winfo_children() if isinstance(child, Toplevel)]
+        return toplevel_list
 
     def start_listening():
         btn_listen.config(state=DISABLED)
@@ -39,26 +44,44 @@ def main():
 
     def stop_listening():
         btn_listen.config(state=DISABLED)
-        if len(sticks_listener) > 0 and sticks_listener[0].is_alive():
-            stop_listener(sticks_listener[0], listener_killer_event)
-            del sticks_listener[0]
-            # messagebox.showinfo("Info", "Stopped listening")
-            btn_listen.config(text="Start\nListening", command=start_listening)
-        else:
-            is_alive = sticks_listener[0].is_alive()
-            messagebox.showerror("Error", f"Num of listeners: {len(sticks_listener)}.\nListener is_alive?: {is_alive}.")
+        if len(sticks_listener) > 0:
+            if sticks_listener[0].is_alive():
+                stop_listener(sticks_listener[0], listener_killer_event)
+                del sticks_listener[0]
+                # messagebox.showinfo("Info", "Stopped listening")
+                btn_listen.config(text="Start\nListening", command=start_listening)
+            else:
+                is_alive = sticks_listener[0].is_alive()
+                messagebox.showerror("Error", f"Num of listeners: {len(sticks_listener)}.\nListener is_alive?: {is_alive}.")
         btn_listen.config(state=NORMAL)
 
     def start_recording():
         rec_manager.update_config(config)
         rec_manager.start_recording()
         lbl_recording_status.config(text="Status: Recording")
+        indicator_canvas.itemconfig(oval, fill='red')
 
     def stop_recording():
+        indicator_canvas.itemconfig(oval, fill='#F0F0F0')
         lbl_recording_status.config(text="Status: Stopping...")
         data, headers = rec_manager.stop_recording()
         lbl_summary.config(text="Summary of the last recording:\n" + tabulate(data, headers=headers))
         lbl_recording_status.config(text="Status: Not recording.")
+
+    def default_config():
+        config = {"rec_dir": "", "calib_file": "", "num_workers": 2, "buffer_size": 64, "type": "jpg", "compression": 70}
+        config.update({"resolution": {"width": 1280, "height": 720}})
+        config.update({"game": "TrypFPV"})
+        config.update({"arm_switch": "AUX1"})
+        config.update({"rates": 3*[[[1.0], [0.7], [0.0]]]})
+        return config
+
+    def validate_config(config):
+        dflt_config = default_config()
+        for k, v in dflt_config.items():
+            if k not in config:
+                config[k] = v
+        return config
 
     def quit_app():
         if lbl_recording_status["text"] == "Status: Recording":
@@ -75,9 +98,23 @@ def main():
             stop_recording()
         elif not stop_grab_event.is_set() and not rec_manager.is_recording:
             start_recording()
-        if not check_toplevel_exists():
-            btn_config.config(state=NORMAL)
-            btn_calib.config(state=NORMAL)
+        toplevel_list = get_toplevel_list()
+        if "Calibration" not in "".join(toplevel_list) and var_is_calib_menu_open.get(): # calib menu just closed
+                btn_calib.config(state=NORMAL)
+                var_is_calib_menu_open.set(False)
+                joystick.load_calibration(config["calib_file"])
+        if "Configuration" not in "".join(toplevel_list) and var_is_config_menu_open.get(): # config menu just closed
+                btn_config.config(state=NORMAL)
+                var_is_config_menu_open.set(False)
+                config.update(json_reader(config_file_path))
+
+        # else:
+        #     if "Calibration" in " ".join(toplevel_list) and btn_calib["state"] == NORMAL:
+        #         var_is_calib_menu_open.set(True)
+        #         btn_calib.config(state=DISABLED)
+        #     if "Configuration" in " ".join(toplevel_list) and btn_config["state"] == NORMAL:
+        #         var_is_config_menu_open.set(True)
+        #         btn_config.config(state=DISABLED)
         root.after(200, Refresher)
 
     root = Tk()
@@ -91,21 +128,28 @@ def main():
     listener_killer_event = mp.Event()
     config_file_path = os.path.join(os.path.split(os.getcwd())[0], "config", "ui.json")
     # print(config_file_path)
+
+    # create default config file:
     if os.path.exists(config_file_path):
         config = json_reader(config_file_path)
-        #@TODO: check if config is valid
+        config = validate_config(config)
     else:
-        config = {"rec_dir": "", "calib_file": "", "num_workers": 2, "buffer_size": 64, "type": "jpg", "compression": 70}
-        config.update({"resolution": {"width": 1280, "height": 720}})
-        config.update({"game": "TrypFPV"})
-        config.update({"arm_switch": "AUX1"})
-        config.update({"rates": 3*[[[1.0], [0.7], [0.0]]]})
+        config = default_config()
 
+    # Initiate joystick instance:
     config = get_calib_file(root, config)
-    joystick = init_joystick(config)
+    try:
+        joystick = init_joystick(config)
+    except Exception as e:
+        messagebox.showerror("Error", "Could not initialize joystick.\n" + str(e))
+        root.quit()
+
+    # Initiate recording manager:
     config = get_rec_dir(root, config)
     rec_manager = RecordingManager(joystick, config, stop_grab_event)
     sticks_listener = []
+
+    # Create ui menu:
     x0, y0 = 20, 20
     btn_x_dist = 150
     btn_width, btn_height = 10, 3
@@ -116,22 +160,30 @@ def main():
 
     btn_config = Button(root, text="Configure\nRecording", width=btn_width, height=btn_height, font=font, command=start_config_menu)
     btn_config.place(x=x0 + btn_x_dist*1, y=y0)
+    var_is_config_menu_open = BooleanVar()
+    var_is_config_menu_open.set(False)
 
     btn_calib = Button(root, text="Calibrate\nsticks", width=btn_width, height=btn_height, command=start_calib_menu, font=font)
     btn_calib.place(x=x0 + btn_x_dist*2, y=y0)
+    var_is_calib_menu_open = BooleanVar()
+    var_is_calib_menu_open.set(False)
 
     lbl_recording_status = Label(root, text="Status:", font=font)
     lbl_recording_status.place(x=x0, y=y0 + 120)
+
+    indicator_canvas = Canvas(root, width=60, height=60)
+    indicator_canvas.place(x=x0+336, y=y0 + 120)
+    oval = indicator_canvas.create_oval(2, 2, 58, 58, width=2, fill='#F0F0F0')
+    indicator_canvas.itemconfig(oval, fill='#F0F0F0')
 
     lbl_summary = Label(root, text="Summary of the last recording:", font=("Helvetica", 10))
     lbl_summary.place(x=x0, y=y0 + 160)
 
     btn_quit = Button(root, text="X", width=2, height=1, command=quit_app)
     btn_quit.place(x=460, y=0)
-    Refresher()
     root.protocol("WM_DELETE_WINDOW", quit_app)
+    Refresher()
     root.mainloop()
-    # @TODO: Fix bugs!!! reload config after config menu is closed
     # @TODO: Fix bugs!!! stop recording after closing app
     # @TODO: Fix bugs!!! save changes when closing config menu
     # @TODO: add summary in start recording lbl (done but ugly)

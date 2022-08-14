@@ -47,24 +47,27 @@ def main():
         if len(sticks_listener) > 0:
             if sticks_listener[0].is_alive():
                 stop_listener(sticks_listener[0], listener_killer_event)
-                del sticks_listener[0]
-                # messagebox.showinfo("Info", "Stopped listening")
-                btn_listen.config(text="Start\nListening", command=start_listening)
-            else:
-                is_alive = sticks_listener[0].is_alive()
-                messagebox.showerror("Error", f"Num of listeners: {len(sticks_listener)}.\nListener is_alive?: {is_alive}.")
+            # else:
+            #     is_alive = sticks_listener[0].is_alive()
+            #     messagebox.showerror("Error", f"Num of listeners: {len(sticks_listener)}.\nListener is_alive?: {is_alive}.")
+            del sticks_listener[0]
+            # messagebox.showinfo("Info", "Stopped listening")
+            btn_listen.config(text="Start\nListening", command=start_listening)
         btn_listen.config(state=NORMAL)
 
     def start_recording():
         rec_manager.update_config(config)
         rec_manager.start_recording()
+        btn_listen.config(state=DISABLED)
         lbl_recording_status.config(text="Status: Recording")
         indicator_canvas.itemconfig(oval, fill='red')
 
     def stop_recording():
+        stop_grab_event.set()
         indicator_canvas.itemconfig(oval, fill='#F0F0F0')
         lbl_recording_status.config(text="Status: Stopping...")
         data, headers = rec_manager.stop_recording()
+        btn_listen.config(state=NORMAL)
         lbl_summary.config(text="Summary of the last recording:\n" + tabulate(data, headers=headers))
         lbl_recording_status.config(text="Status: Not recording.")
 
@@ -86,12 +89,17 @@ def main():
     def quit_app():
         if lbl_recording_status["text"] == "Status: Recording":
             if messagebox.askokcancel("Quit", "Are you sure you want to quit?\nRecording will be stopped."):
+                stop_listening()
+                sleep(0.5)
                 stop_recording()
-                stop_listening()
+                root.quit()
+
         if btn_listen["text"] == "Stop\nListening":
-            if messagebox.askokcancel("Quit", "Are you sure you want to quit?\nListening will be stopped."):
+            ans = messagebox.askokcancel("Quit", "Are you sure you want to quit?\nListening will be stopped.")
+            print(ans)
+            if ans:
                 stop_listening()
-        root.quit()
+                root.quit()
 
     def Refresher():
         if stop_grab_event.is_set() and rec_manager.is_recording:
@@ -177,15 +185,14 @@ def main():
     indicator_canvas.itemconfig(oval, fill='#F0F0F0')
 
     lbl_summary = Label(root, text="Summary of the last recording:", font=("Helvetica", 10))
-    lbl_summary.place(x=x0, y=y0 + 160)
+    lbl_summary.place(x=x0, y=y0 + 180)
 
     btn_quit = Button(root, text="X", width=2, height=1, command=quit_app)
     btn_quit.place(x=460, y=0)
     root.protocol("WM_DELETE_WINDOW", quit_app)
     Refresher()
     root.mainloop()
-    # @TODO: Fix bugs!!! stop recording after closing app
-    # @TODO: Fix bugs!!! save changes when closing config menu
+    # @TODO: Get app-window/source and show it like in OBS studio (tests/get_app_window_info_test.py)
     # @TODO: add summary in start recording lbl (done but ugly)
 
 

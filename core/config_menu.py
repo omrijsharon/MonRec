@@ -37,10 +37,11 @@ def config_menu(root, joystick, config, config_file_path):
 
     def Refresher():
         readings = joystick.calib_read()
-        if stop_func(calib_readings=readings, calib_dict=calib_dict, switch=var_arm_switch.get(), stop_value=stop_value):
-            indicator_canvas.itemconfig(oval, fill='#F0F0F0')
-        else:
-            indicator_canvas.itemconfig(oval, fill='red')
+        if window.winfo_exists():
+            if stop_func(calib_readings=readings, calib_dict=calib_dict, switch=var_arm_switch.get(), stop_value=stop_value):
+                indicator_canvas.itemconfig(oval, fill='#F0F0F0')
+            else:
+                indicator_canvas.itemconfig(oval, fill='red')
         root.after(200, Refresher)
 
     original_config = deepcopy(config)

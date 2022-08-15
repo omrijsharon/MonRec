@@ -5,6 +5,8 @@ from tkinter import ttk
 from tkinter import messagebox
 from tkinter import filedialog
 
+import numpy as np
+
 import multiprocessing as mp
 from grab_to_queues import grab_frames_to_queue, grab_sticks_to_queue
 from save_from_queues import save_frames_from_queue, save_sticks_from_queue
@@ -18,8 +20,10 @@ from copy import deepcopy
 from recording import RecordingManager, init_joystick, listen2sticks
 from functools import partial
 from tabulate import tabulate
-
+from PIL.ImageTk import PhotoImage
+from PIL import Image
 from recording import stop_func
+from winfo import getWindowSizes, get_app_window_screenshot
 
 
 def config_menu(root, joystick, config, config_file_path):
@@ -35,6 +39,21 @@ def config_menu(root, joystick, config, config_file_path):
             if messagebox.askyesno("Save", "Save changes?"):
                 save_config()
 
+    def change_resolution(e=None):
+        window_info = [win for win in windowsize if win["name"] == var_game.get()][0]
+        var_width.set(window_info["width"])
+        var_height.set(window_info["height"])
+        img[0] = get_app_window_screenshot(window_info)
+        scale_inv = img[0].shape[0] / max_height
+        h = img[0].shape[0] // scale_inv
+        w = img[0].shape[1] // scale_inv
+        if h > max_height or w > max_width:
+            scale_inv = img[0].shape[1] / max_width
+            h = img[0].shape[0] // scale_inv
+            w = img[0].shape[1] // scale_inv
+        img[0] = PhotoImage(Image.fromarray(img[0]).resize((int(w), int(h)), Image.ANTIALIAS))
+        canvas.create_image(20, 20, anchor="nw", image=img[0])
+
     def Refresher():
         readings = joystick.calib_read()
         if window.winfo_exists():
@@ -42,16 +61,17 @@ def config_menu(root, joystick, config, config_file_path):
                 indicator_canvas.itemconfig(oval, fill='#F0F0F0')
             else:
                 indicator_canvas.itemconfig(oval, fill='red')
-        root.after(200, Refresher)
+        window.after(200, Refresher)
 
     original_config = deepcopy(config)
     window = Toplevel()
     window.wm_transient(root)
     window.title("Recording Configuration")
     # window.geometry('%dx%d+%d+%d' % (460, 360, 0, 0))
-    window.geometry('%dx%d' % (460, 360))
+    window.geometry('%dx%d' % (460, 560))
     window.resizable(False, False)
     # window.attributes('-topmost', 'false')
+
 
     # Rec dir
     x0, y0 = 10, 10
@@ -77,28 +97,8 @@ def config_menu(root, joystick, config, config_file_path):
     btn_calib_file = Button(window, text="Browse", command=partial(lambda x: x.set(filedialog.askopenfilename(filetypes=[("Calibration files (*.json)", ".json")], title="Select a calibration file")), var_calib_file))
     btn_calib_file.place(x=x0 + 390, y=y0+14)
 
-    # Resolution
-    x0, y0 = 10, 112
-    lbl_resolution = Label(window, text="Resolution:")
-    lbl_resolution.place(x=x0, y=y0)
-    var_width = StringVar()
-    var_height = StringVar()
-    lbl_width = Label(window, text="Width:")
-    lbl_width.place(x=x0+10, y=y0+18)
-    entry_width = Entry(window, textvariable=var_width, width=5)
-    entry_width.place(x=x0+13, y=y0+36)
-    var_width.set(str(config.get("resolution").get("width")))
-    var_width.trace("w", lambda name, index, mode, sv=var_width: config.update({"resolution": {"width": int(sv.get())}}))
-    lbl_height = Label(window, text="Height:")
-    lbl_height.place(x=x0+80, y=y0+18)
-    Label(window, text="X").place(x=x0+56, y=y0+36)
-    entry_height = Entry(window, textvariable=var_height, width=5)
-    entry_height.place(x=x0+83, y=y0+36)
-    var_height.set(str(config.get("resolution").get("height")))
-    var_height.trace("w", lambda name, index, mode, sv=var_height: config.update({"resolution": {"height": int(sv.get())}}))
-
     # Workers
-    x0, y0 = 10, 250
+    x0, y0 = 10, 110
     var_num_workers = StringVar()
     lbl_num_workers = Label(window, text="# workers:")
     lbl_num_workers.place(x=x0, y=y0)
@@ -108,7 +108,7 @@ def config_menu(root, joystick, config, config_file_path):
     var_num_workers.trace("w", lambda name, index, mode, sv=var_num_workers: config.update({"num_workers": int(sv.get())}))
 
     # Buffer size
-    x0, y0 = 80, 250
+    x0, y0 = 80, 110
     var_buffer_size = StringVar()
     lbl_buffer_size = Label(window, text="Buffer size:")
     lbl_buffer_size.place(x=x0, y=y0)
@@ -117,18 +117,35 @@ def config_menu(root, joystick, config, config_file_path):
     var_buffer_size.set(config.get("buffer_size"))
     var_buffer_size.trace("w", lambda name, index, mode, sv=var_buffer_size: config.update({"buffer_size": int(sv.get())}))
 
+    # Arm/Rec switch
+    x0, y0 = 10,  156
+    var_arm_switch = StringVar()
+    var_arm_switch.set(config.get("arm_switch"))
+    lbl_arm_switch = Label(window, text="Arm/Rec switch:")
+    lbl_arm_switch.place(x=x0, y=y0)
+    cmb_arm_switch = ttk.Combobox(window, textvariable=var_arm_switch, width=6, values=["AUX1", "AUX2"], state="readonly")
+    cmb_arm_switch.place(x=x0+13, y=y0+18)
+    var_arm_switch.trace("w", lambda name, index, mode, sv=var_arm_switch: config.update({"arm_switch": sv.get()}))
+    indicator_canvas = Canvas(window, width=30, height=30)
+    indicator_canvas.place(x=x0+93, y=y0+8)
+    oval = indicator_canvas.create_oval(2, 2, 27, 27, width=1, fill='#F0F0F0')
+    indicator_canvas.itemconfig(oval, fill='#F0F0F0')
+    #initiate sticks
+    calib_dict = json_reader(config.get("calib_file"))
+    stop_value = -1.0
+
     # Type
-    x0, y0 = 10, 184
+    x0, y0 = 10, 204
     var_type = StringVar()
     var_type.set(config.get("type"))
     lbl_type = Label(window, text="Image type:")
     lbl_type.place(x=x0, y=y0)
     cmb_type = ttk.Combobox(window, textvariable=var_type, width=5, values=["png", "jpg"], state="readonly")
-    cmb_type.place(x=x0+3, y=y0+18)
+    cmb_type.place(x=x0+13, y=y0+18)
     var_type.trace("w", lambda name, index, mode, sv=var_type: config.update({"type": sv.get()}))
 
     # compression
-    x0, y0 = 80, 184
+    x0, y0 = 80, 204
     var_compression = StringVar()
     lbl_compression = Label(window, text="Compression:")
     lbl_compression.place(x=x0, y=y0)
@@ -141,40 +158,51 @@ def config_menu(root, joystick, config, config_file_path):
     x0, y0 = 204, 112
     rates(window, config, x0, y0)
 
-    # Game
-    x0, y0 = 204, 220
+    # Game/Window
+    x0, y0 = 10, 254
     var_game = StringVar()
-    var_game.set(config.get("game"))
-    lbl_game = Label(window, text="Game:")
+    lbl_game = Label(window, text="Window:")
     lbl_game.place(x=x0, y=y0)
-    game_names = ["TrypFPV", "Uncrashed", "Liftoff", "Velocidrone", "DRL"]
-    cmb_game = ttk.Combobox(window, textvariable=var_game, width=12, values=game_names, state="readonly")
-    cmb_game.place(x=x0+3, y=y0+18)
+    windowsize = getWindowSizes()
+    # game_names = ["TrypFPV", "Uncrashed", "Liftoff", "Velocidrone", "DRL"]
+    game_names = [win["name"] for win in windowsize]
+    var_game.set(config.get("game") if config["game"] in game_names else game_names[0])
+    cmb_game = ttk.Combobox(window, textvariable=var_game, width=26, values=game_names, state="readonly")
+    cmb_game.bind("<<ComboboxSelected>>", change_resolution)
+    cmb_game.place(x=x0+13, y=y0+18)
     var_game.trace("w", lambda name, index, mode, sv=var_game: config.update({"game": sv.get()}))
+    max_height = 250
+    max_width = 440
+    canvas = Canvas(window, width=max_width, height=max_height)
+    canvas.place(x=x0-10, y=y0+40)
+    img = [0]
 
-    # Arm/Rec switch
-    x0, y0 = 314, 220
-    var_arm_switch = StringVar()
-    var_arm_switch.set(config.get("arm_switch"))
-    lbl_arm_switch = Label(window, text="Arm/Rec switch:")
-    lbl_arm_switch.place(x=x0, y=y0)
-    cmb_arm_switch = ttk.Combobox(window, textvariable=var_arm_switch, width=6, values=["AUX1", "AUX2"], state="readonly")
-    cmb_arm_switch.place(x=x0+3, y=y0+18)
-    var_arm_switch.trace("w", lambda name, index, mode, sv=var_arm_switch: config.update({"arm_switch": sv.get()}))
-    indicator_canvas = Canvas(window, width=30, height=30)
-    indicator_canvas.place(x=x0+93, y=y0+8)
-    oval = indicator_canvas.create_oval(2, 2, 27, 27, width=1, fill='#F0F0F0')
-    indicator_canvas.itemconfig(oval, fill='#F0F0F0')
-    #initiate sticks
-    calib_dict = json_reader(config.get("calib_file"))
-    stop_value = -1.0
-
+    # Resolution
+    x0, y0 = 204, y0-18
+    lbl_resolution = Label(window, text="Resolution:")
+    lbl_resolution.place(x=x0, y=y0)
+    var_width = StringVar()
+    var_height = StringVar()
+    lbl_width = Label(window, text="Width:")
+    lbl_width.place(x=x0 + 10, y=y0 + 18)
+    entry_width = Entry(window, textvariable=var_width, width=5, state="readonly")
+    entry_width.place(x=x0 + 13, y=y0 + 36)
+    var_width.set(str(config.get("resolution").get("width")))
+    var_width.trace("w", lambda name, index, mode, sv=var_width: config.update({"resolution": {"width": int(sv.get())}}))
+    lbl_height = Label(window, text="Height:")
+    lbl_height.place(x=x0 + 80, y=y0 + 18)
+    Label(window, text="X").place(x=x0 + 56, y=y0 + 36)
+    entry_height = Entry(window, textvariable=var_height, width=5, state="readonly")
+    entry_height.place(x=x0 + 83, y=y0 + 36)
+    var_height.set(str(config.get("resolution").get("height")))
+    var_height.trace("w", lambda name, index, mode, sv=var_height: config.update({"resolution": {"height": int(sv.get())}}))
 
     # save
-    x0, y0 = 20, 296
-    btn_save = Button(window, text="Save", width=60, height=3, command=save_config)
+    x0, y0 = 366, y0+32
+    btn_save = Button(window, text="Save", width=10, command=save_config)
     btn_save.place(x=x0, y=y0)
 
+    change_resolution()
     root.protocol("WM_DELETE_WINDOW", on_closing)
     Refresher()
     window.mainloop()

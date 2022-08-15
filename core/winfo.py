@@ -1,8 +1,10 @@
 import win32con
 import win32gui
 import win32process
-import win32api
-import psutil
+import mss
+import mss.tools
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 def isRealWindow(hWnd):
@@ -37,34 +39,25 @@ def getWindowSizes():
         w, h = rect[2] - rect[0], rect[3] - rect[1]
         # windows.append({"name": name, "pid": cpid, "rect": rect, "wh": (w-16, h-39)})
         if all([r>0 for r in rect]):
-            windows.append({"name": name, "pid": cpid, "rect": rect, "wh": (w, h)})
+            windows.append({"name": name, "pid": cpid, "rect": rect, "width": w, "height": h})
     windows = []
     win32gui.EnumWindows(callback, windows)
     return windows
 
-if __name__ == '__main__':
-    import mss
-    import mss.tools
-    import numpy as np
-    import matplotlib.pyplot as plt
 
-    compression = 9
-    monitor_number = 0
-    for win in getWindowSizes():
-        print(win)
-        with mss.mss() as sct:
-            sct.compression_level = compression
-            mon = sct.monitors[monitor_number]
-            monitor = {
-                "top": win["rect"][1],
-                "left": win["rect"][0],
-                "width": win["wh"][0],
-                "height": win["wh"][1],
-                "mon": monitor_number,
-            }
-            img_byte = sct.grab(monitor)
-            img = np.frombuffer(img_byte.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)[:, :, ::-1]
-            plt.imshow(img)
-            plt.title(win["name"].strip(" ").replace(" ","_"))
-            plt.show()
-
+def get_app_window_screenshot(window_info, monitor_number=0):
+    # compression = 6
+    with mss.mss() as sct:
+        monitor = {
+            "top": window_info["rect"][1],
+            "left": window_info["rect"][0],
+            "width": window_info["width"],
+            "height": window_info["height"],
+            "mon": monitor_number,
+        }
+        img_byte = sct.grab(monitor)
+        img = np.frombuffer(img_byte.rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)
+        # plt.imshow(img)
+        # plt.title(window_info["name"].strip(" ").replace(" ","_"))
+        # plt.show()
+        return img

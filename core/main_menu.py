@@ -192,7 +192,9 @@ def main():
     root.protocol("WM_DELETE_WINDOW", quit_app)
     Refresher()
     root.mainloop()
-    # @TODO: Get app-window/source and show it like in OBS studio (tests/get_app_window_info_test.py)
+    # @TODO: add/change config file and sct.monitor (mss) by the new config menu.
+    # @TODO: Test with more than 1 display.
+    # @TODO: FIX BUG: doesn't quit when clicking on the X button
     # @TODO: add summary in start recording lbl (done but ugly)
 
 

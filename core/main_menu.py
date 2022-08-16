@@ -81,6 +81,7 @@ def main():
         }
         config = {"rec_dir": "", "calib_file": "", "num_workers": 2, "buffer_size": 64, "type": "jpg", "compression": 70}
         config.update({"monitor": monitor})
+        config.update({"camera_angle": 30})
         config.update({"game": "TrypFPV"})
         config.update({"arm_switch": "AUX1"})
         config.update({"rates": 3*[[[1.0], [0.7], [0.0]]]})
@@ -195,6 +196,7 @@ def main():
     Refresher()
     root.protocol("WM_DELETE_WINDOW", quit_app)
     root.mainloop()
+    # @TODO: Delete last recording using joystick switch/aux.
     # @TODO: Test with more than 1 display.
     # @TODO: add summary in start recording lbl (done but ugly)
 

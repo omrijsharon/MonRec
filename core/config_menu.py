@@ -180,8 +180,18 @@ def config_menu(root, joystick, config, config_file_path):
     canvas.place(x=x0-10, y=y0+40)
     img = [0]
 
+    # Camera angle
+    x0, y0 = 204, 212
+    var_camera_angle = StringVar()
+    lbl_camera_angle = Label(window, text="Camera angle:             °")
+    lbl_camera_angle.place(x=x0, y=y0)
+    entry_camera_angle = Entry(window, textvariable=var_camera_angle, width=3)
+    entry_camera_angle.place(x=x0+93, y=y0+3)
+    var_camera_angle.set(config.get("camera_angle"))
+    var_camera_angle.trace("w", lambda name, index, mode, sv=var_camera_angle: config.update({"camera_angle": int(sv.get())}))
+
     # Resolution
-    x0, y0 = 204, y0-18
+    x0, y0 = 204, 236
     lbl_resolution = Label(window, text="Resolution:")
     lbl_resolution.place(x=x0, y=y0)
     var_width = StringVar()

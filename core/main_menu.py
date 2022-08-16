@@ -92,14 +92,17 @@ def main():
                 stop_listening()
                 sleep(0.5)
                 stop_recording()
-                root.quit()
+                root.destroy()
+            else:
+                return
 
         if btn_listen["text"] == "Stop\nListening":
-            ans = messagebox.askokcancel("Quit", "Are you sure you want to quit?\nListening will be stopped.")
-            print(ans)
-            if ans:
+            if messagebox.askokcancel("Quit", "Are you sure you want to quit?\nListening will be stopped."):
                 stop_listening()
-                root.quit()
+                root.destroy()
+            else:
+                return
+        root.destroy()
 
     def Refresher():
         if stop_grab_event.is_set() and rec_manager.is_recording:
@@ -189,12 +192,11 @@ def main():
 
     btn_quit = Button(root, text="X", width=2, height=1, command=quit_app)
     btn_quit.place(x=460, y=0)
-    root.protocol("WM_DELETE_WINDOW", quit_app)
     Refresher()
+    root.protocol("WM_DELETE_WINDOW", quit_app)
     root.mainloop()
     # @TODO: add/change config file and sct.monitor (mss) by the new config menu.
     # @TODO: Test with more than 1 display.
-    # @TODO: FIX BUG: doesn't quit when clicking on the X button
     # @TODO: add summary in start recording lbl (done but ugly)
 
 

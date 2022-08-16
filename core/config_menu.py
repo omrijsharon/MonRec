@@ -38,6 +38,7 @@ def config_menu(root, joystick, config, config_file_path):
         if not config == original_config:
             if messagebox.askyesno("Save", "Save changes?"):
                 save_config()
+        window.destroy()
 
     def change_resolution(e=None):
         window_info = [win for win in windowsize if win["name"] == var_game.get()][0]
@@ -203,8 +204,8 @@ def config_menu(root, joystick, config, config_file_path):
     btn_save.place(x=x0, y=y0)
 
     change_resolution()
-    root.protocol("WM_DELETE_WINDOW", on_closing)
     Refresher()
+    window.protocol("WM_DELETE_WINDOW", on_closing)
     window.mainloop()
 
 

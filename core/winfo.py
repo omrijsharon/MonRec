@@ -45,7 +45,7 @@ def getWindowSizes():
     return windows
 
 
-def get_app_window_screenshot(window_info, monitor_number=0):
+def get_window_monitor_and_screenshot(window_info, monitor_number=0):
     # compression = 6
     with mss.mss() as sct:
         monitor = {
@@ -60,4 +60,4 @@ def get_app_window_screenshot(window_info, monitor_number=0):
         # plt.imshow(img)
         # plt.title(window_info["name"].strip(" ").replace(" ","_"))
         # plt.show()
-        return img
+        return monitor, img

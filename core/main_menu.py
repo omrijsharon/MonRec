@@ -72,8 +72,15 @@ def main():
         lbl_recording_status.config(text="Status: Not recording.")
 
     def default_config():
+        monitor = {
+            "top": 0,
+            "left": 0,
+            "width": 1280,
+            "height": 720,
+            "mon": 0
+        }
         config = {"rec_dir": "", "calib_file": "", "num_workers": 2, "buffer_size": 64, "type": "jpg", "compression": 70}
-        config.update({"resolution": {"width": 1280, "height": 720}})
+        config.update({"monitor": monitor})
         config.update({"game": "TrypFPV"})
         config.update({"arm_switch": "AUX1"})
         config.update({"rates": 3*[[[1.0], [0.7], [0.0]]]})
@@ -92,14 +99,14 @@ def main():
                 stop_listening()
                 sleep(0.5)
                 stop_recording()
-                root.destroy()
+                root.quit()
             else:
                 return
 
         if btn_listen["text"] == "Stop\nListening":
             if messagebox.askokcancel("Quit", "Are you sure you want to quit?\nListening will be stopped."):
                 stop_listening()
-                root.destroy()
+                root.quit()
             else:
                 return
         root.destroy()
@@ -119,13 +126,6 @@ def main():
                 var_is_config_menu_open.set(False)
                 config.update(json_reader(config_file_path))
 
-        # else:
-        #     if "Calibration" in " ".join(toplevel_list) and btn_calib["state"] == NORMAL:
-        #         var_is_calib_menu_open.set(True)
-        #         btn_calib.config(state=DISABLED)
-        #     if "Configuration" in " ".join(toplevel_list) and btn_config["state"] == NORMAL:
-        #         var_is_config_menu_open.set(True)
-        #         btn_config.config(state=DISABLED)
         root.after(200, Refresher)
 
     root = Tk()
@@ -195,7 +195,6 @@ def main():
     Refresher()
     root.protocol("WM_DELETE_WINDOW", quit_app)
     root.mainloop()
-    # @TODO: add/change config file and sct.monitor (mss) by the new config menu.
     # @TODO: Test with more than 1 display.
     # @TODO: add summary in start recording lbl (done but ugly)
 

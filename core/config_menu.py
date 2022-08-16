@@ -23,7 +23,7 @@ from tabulate import tabulate
 from PIL.ImageTk import PhotoImage
 from PIL import Image
 from recording import stop_func
-from winfo import getWindowSizes, get_app_window_screenshot
+from winfo import getWindowSizes, get_window_monitor_and_screenshot
 
 
 def config_menu(root, joystick, config, config_file_path):
@@ -32,7 +32,9 @@ def config_menu(root, joystick, config, config_file_path):
         json_writer(config, config_file_path)
         if os.path.exists(config_file_path):
             messagebox.showinfo("Info", f"Configuration saved")
-            on_closing()
+            window.destroy()
+        else:
+            messagebox.showerror("Error", "Could not save configuration file. Check permissions")
 
     def on_closing():
         if not config == original_config:
@@ -44,7 +46,7 @@ def config_menu(root, joystick, config, config_file_path):
         window_info = [win for win in windowsize if win["name"] == var_game.get()][0]
         var_width.set(window_info["width"])
         var_height.set(window_info["height"])
-        img[0] = get_app_window_screenshot(window_info)
+        config["monitor"], img[0] = get_window_monitor_and_screenshot(window_info)
         scale_inv = img[0].shape[0] / max_height
         h = img[0].shape[0] // scale_inv
         w = img[0].shape[1] // scale_inv
@@ -188,15 +190,15 @@ def config_menu(root, joystick, config, config_file_path):
     lbl_width.place(x=x0 + 10, y=y0 + 18)
     entry_width = Entry(window, textvariable=var_width, width=5, state="readonly")
     entry_width.place(x=x0 + 13, y=y0 + 36)
-    var_width.set(str(config.get("resolution").get("width")))
-    var_width.trace("w", lambda name, index, mode, sv=var_width: config.update({"resolution": {"width": int(sv.get())}}))
+    var_width.set(str(config.get("monitor").get("width")))
+    # var_width.trace("w", lambda name, index, mode, sv=var_width: config.update({"monitor": {"width": int(sv.get())}}))
     lbl_height = Label(window, text="Height:")
     lbl_height.place(x=x0 + 80, y=y0 + 18)
     Label(window, text="X").place(x=x0 + 56, y=y0 + 36)
     entry_height = Entry(window, textvariable=var_height, width=5, state="readonly")
     entry_height.place(x=x0 + 83, y=y0 + 36)
-    var_height.set(str(config.get("resolution").get("height")))
-    var_height.trace("w", lambda name, index, mode, sv=var_height: config.update({"resolution": {"height": int(sv.get())}}))
+    var_height.set(str(config.get("monitor").get("height")))
+    # var_height.trace("w", lambda name, index, mode, sv=var_height: config.update({"monitor": {"height": int(sv.get())}}))
 
     # save
     x0, y0 = 366, y0+32

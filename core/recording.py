@@ -17,7 +17,7 @@ from functools import partial
 class RecordingManager:
     def __init__(self, joystick, config, stop_grab_event):
         self.config = config
-        self.resolution = config.get("resolution")
+        self.monitor = config.get("monitor")
         self.compression = config.get("compression")
         self.type = config.get("type")
         self.num_workers = config.get("num_workers")
@@ -38,7 +38,7 @@ class RecordingManager:
 
     def update_config(self, config):
         self.config = config
-        self.resolution = config.get("resolution")
+        self.monitor = config.get("monitor")
         self.compression = config.get("compression")
         self.type = config.get("type")
         self.num_workers = config.get("num_workers")
@@ -48,7 +48,7 @@ class RecordingManager:
         self.game = config.get("game")
 
     def get_a_path(self):
-        return os.path.join(self.base_path, self.game, datetime.now().strftime("%Y%m%d_%H%M%S"))
+        return os.path.join(self.base_path, self.game.strip(" ").replace(" ","_"), datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     def reset(self):
         self.path = self.get_a_path()
@@ -56,10 +56,10 @@ class RecordingManager:
         self.queue_frames = Queue()
         self.queue_sticks = Queue()
         # init processes
-        self.p_grab_frames = Process(target=grab_frames_to_queue, args=(self.queue_frames, self.stop_grab_event, self.resolution, self.compression, 0), daemon=True)
+        self.p_grab_frames = Process(target=grab_frames_to_queue, args=(self.queue_frames, self.stop_grab_event, self.monitor, self.compression), daemon=True)
         self.p_grab_sticks = Process(target=grab_sticks_to_queue, args=(self.joystick, self.queue_sticks, self.stop_grab_event), daemon=True)
         self.p_save_sticks = Process(target=save_sticks_from_queue, args=(self.queue_sticks, self.path, self.calib_file, self.stop_grab_event, self.buffer_size))
-        self.p_save_frames = [Process(target=save_frames_from_queue, args=(self.queue_frames, self.path, self.stop_grab_event, self.resolution, self.type, self.compression)) for _ in range(self.num_workers)]
+        self.p_save_frames = [Process(target=save_frames_from_queue, args=(self.queue_frames, self.path, self.stop_grab_event, self.monitor, self.type, self.compression)) for _ in range(self.num_workers)]
 
     def start_recording(self):
         if not os.path.exists(self.calib_file):

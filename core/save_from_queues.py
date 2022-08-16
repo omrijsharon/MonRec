@@ -14,7 +14,7 @@ queue_rc = Queue()
 queue_frames = Queue()
 
 
-def save_frames_from_queue(queue_frames, path, stop_grab_event, resolution, type="png", compression=9):
+def save_frames_from_queue(queue_frames, path, stop_grab_event, monitor, type="png", compression=9):
     assert isinstance(compression, int), "compression must be an integer."
     if type == "png":
         assert 9 >= compression >= 0, "png compression must be between 0 and 9."
@@ -32,7 +32,7 @@ def save_frames_from_queue(queue_frames, path, stop_grab_event, resolution, type
         if stop_grab_event.is_set():
             print("Stopping frame saver pid ", os.getpid())
             break
-        frame = np.frombuffer(rgb, np.uint8).reshape(resolution["height"], resolution["width"], 3)[:, :, ::-1]
+        frame = np.frombuffer(rgb, np.uint8).reshape(monitor["height"], monitor["width"], 3)[:, :, ::-1]
         # filename = timestamp.strftime("%Y%m%d_%H%M%S.%f") + f".{type}"
         filename = str(timestamp).split(".")
         filename[1] = filename[1][::-1].zfill(6)[::-1]

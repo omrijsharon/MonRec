@@ -33,7 +33,7 @@ def getWindowSizes():
         name = win32gui.GetWindowText(hWnd)
         ctid, cpid = win32process.GetWindowThreadProcessId(hWnd)
         w, h = rect[2] - rect[0], rect[3] - rect[1]
-        if all([r > 0 for r in rect]):
+        if all([r >= 0 for r in rect]):
             windows.append({"name": name, "pid": cpid, "rect": rect, "width": w, "height": h})
     windows = []
     win32gui.EnumWindows(callback, windows)
@@ -67,3 +67,7 @@ def get_window_monitor(window_info, monitor_number=0, return_screenshot=False, i
         # plt.show()
     return monitor, img
 
+if __name__ == '__main__':
+    from time import sleep
+    sleep(5)
+    print(getWindowSizes())

@@ -51,9 +51,6 @@ def main():
         if len(sticks_listener) > 0:
             if sticks_listener[0].is_alive():
                 stop_listener(sticks_listener[0], listener_killer_event)
-            # else:
-            #     is_alive = sticks_listener[0].is_alive()
-            #     messagebox.showerror("Error", f"Num of listeners: {len(sticks_listener)}.\nListener is_alive?: {is_alive}.")
             del sticks_listener[0]
             # messagebox.showinfo("Info", "Stopped listening")
             btn_listen.config(text="Start\nListening", command=start_listening)
@@ -65,6 +62,8 @@ def main():
             window_info = [win for win in windowsize_temp if not "".join(game_names).lower().find(win["name"].strip(" ").lower())==-1]
             if len(window_info) > 0:
                 window_info = window_info[0]
+                if window_info["name"].strip(" ").lower() == "uncrashed":
+                    var_is_fullscreen.set(True)
                 monitor = get_window_monitor(window_info, return_screenshot=False, is_fullscreen=var_is_fullscreen.get())
                 lbl_game_detected.config(text=window_info["name"])
                 lbl_game_resolution.config(text=f"Resolution {window_info['width']}x{window_info['height']}")

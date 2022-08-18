@@ -31,7 +31,7 @@ def getWindowSizes():
         name = win32gui.GetWindowText(hWnd)
         ctid, cpid = win32process.GetWindowThreadProcessId(hWnd)
         rect[0] += 8
-        rect[1] += 31
+        rect[1] += +31
         rect[2] -= 8
         rect[3] -= 8
         w, h = rect[2] - rect[0], rect[3] - rect[1]

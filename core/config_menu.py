@@ -23,7 +23,7 @@ from tabulate import tabulate
 from PIL.ImageTk import PhotoImage
 from PIL import Image
 from recording import stop_func
-from winfo import getWindowSizes, get_window_monitor_and_screenshot
+from winfo import getWindowSizes, get_window_monitor
 
 
 def config_menu(root, joystick, config, config_file_path):
@@ -43,10 +43,13 @@ def config_menu(root, joystick, config, config_file_path):
         window.destroy()
 
     def change_resolution(e=None):
-        window_info = [win for win in windowsize if win["name"] == var_game.get()][0]
-        var_width.set(window_info["width"])
-        var_height.set(window_info["height"])
-        config["monitor"], img[0] = get_window_monitor_and_screenshot(window_info)
+        windowsize_temp = getWindowSizes()
+        window_info = [win for win in windowsize_temp if win["name"] == var_game.get()][0]
+        monitor, img[0] = get_window_monitor(window_info, return_screenshot=True, is_fullscreen=var_fullscreen.get() == "Full Screen")
+        config["monitor"].update(monitor)
+        config.update({"game": window_info["name"]})
+        var_width.set(config["monitor"]["width"])
+        var_height.set(config["monitor"]["height"])
         scale_inv = img[0].shape[0] / max_height
         h = img[0].shape[0] // scale_inv
         w = img[0].shape[1] // scale_inv
@@ -168,9 +171,9 @@ def config_menu(root, joystick, config, config_file_path):
     lbl_game.place(x=x0, y=y0)
     windowsize = getWindowSizes()
     # game_names = ["TrypFPV", "Uncrashed", "Liftoff", "Velocidrone", "DRL"]
-    game_names = [win["name"] for win in windowsize]
-    var_game.set(config.get("game") if config["game"] in game_names else game_names[0])
-    cmb_game = ttk.Combobox(window, textvariable=var_game, width=26, values=game_names, state="readonly")
+    win_names = [win["name"] for win in windowsize]
+    var_game.set(config.get("game") if config["game"] in win_names else win_names[0])
+    cmb_game = ttk.Combobox(window, textvariable=var_game, width=26, values=win_names, state="readonly")
     cmb_game.bind("<<ComboboxSelected>>", change_resolution)
     cmb_game.place(x=x0+13, y=y0+18)
     var_game.trace("w", lambda name, index, mode, sv=var_game: config.update({"game": sv.get()}))
@@ -191,24 +194,33 @@ def config_menu(root, joystick, config, config_file_path):
     var_camera_angle.trace("w", lambda name, index, mode, sv=var_camera_angle: config.update({"camera_angle": int(sv.get())}))
 
     # Resolution
-    x0, y0 = 204, 236
+    x0, y0 = 254, 233
     lbl_resolution = Label(window, text="Resolution:")
-    lbl_resolution.place(x=x0, y=y0)
+    lbl_resolution.place(x=x0-50, y=y0+15)
     var_width = StringVar()
     var_height = StringVar()
     lbl_width = Label(window, text="Width:")
-    lbl_width.place(x=x0 + 10, y=y0 + 18)
+    lbl_width.place(x=x0 + 20, y=y0)
     entry_width = Entry(window, textvariable=var_width, width=5, state="readonly")
-    entry_width.place(x=x0 + 13, y=y0 + 36)
+    entry_width.place(x=x0 + 23, y=y0 + 18)
     var_width.set(str(config.get("monitor").get("width")))
     # var_width.trace("w", lambda name, index, mode, sv=var_width: config.update({"monitor": {"width": int(sv.get())}}))
     lbl_height = Label(window, text="Height:")
-    lbl_height.place(x=x0 + 80, y=y0 + 18)
-    Label(window, text="X").place(x=x0 + 56, y=y0 + 36)
+    lbl_height.place(x=x0 + 80, y=y0)
+    Label(window, text="X").place(x=x0 + 66, y=y0 + 18)
     entry_height = Entry(window, textvariable=var_height, width=5, state="readonly")
-    entry_height.place(x=x0 + 83, y=y0 + 36)
+    entry_height.place(x=x0 + 83, y=y0 + 18)
     var_height.set(str(config.get("monitor").get("height")))
     # var_height.trace("w", lambda name, index, mode, sv=var_height: config.update({"monitor": {"height": int(sv.get())}}))
+
+    # Full screen
+    x0, y0 = 204, 254
+    var_fullscreen = StringVar()
+    var_fullscreen.set(config.get("Full Screen"))
+    cmb_fullscreen = ttk.Combobox(window, textvariable=var_fullscreen, width=12, values=["Full Screen", "Windowed"], state="readonly")
+    cmb_fullscreen.place(x=x0 + 15, y=y0+18)
+    var_fullscreen.trace("w", lambda name, index, mode, sv=var_fullscreen: config.update({"Full Screen": sv.get()}))
+    cmb_fullscreen.bind("<<ComboboxSelected>>", change_resolution)
 
     # save
     x0, y0 = 366, y0+32

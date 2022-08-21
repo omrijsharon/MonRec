@@ -39,6 +39,16 @@ def config_menu(root, joystick, config, config_file_path):
 
     def on_closing():
         if not config == original_config:
+            if var_num_capture_workers.get() == 0:
+                messagebox.showerror("Error", "Number of capture workers must be greater than 0")
+                return
+            if var_num_save_workers.get() == 0:
+                messagebox.showerror("Error", "Number of save workers must be greater than 0")
+                return
+            if var_num_save_workers.get() <= var_num_capture_workers.get():
+                messagebox.showwarning("Warning", "Number of save workers is less than number of capture workers.\n"
+                                                  "This may cause problems with the recording.\n"
+                                                  "Consider increasing the number of save workers.")
             if messagebox.askyesno("Save", "Save changes?"):
                 save_config()
         window.destroy()

@@ -99,7 +99,9 @@ def main():
             "height": 720,
             "mon": 0
         }
-        config = {"rec_dir": "", "calib_file": "", "num_workers": 2, "buffer_size": 64, "type": "jpg", "compression": 70}
+        config = {"rec_dir": "", "calib_file": "", "buffer_size": 64, "type": "jpg", "compression": 70}
+        config.update({"num_saving_workers": 2,
+                       "num_capturing_workers": 1})
         config.update({"monitor": monitor})
         config.update({"Full Screen": "Windowed"})
         config.update({"camera_angle": 30})
@@ -114,11 +116,6 @@ def main():
             if k not in config:
                 config[k] = v
         return config
-
-    def save_widgets(widgets_position, path):
-        pass
-        # with open(path, 'w') as f:
-        #     json_writer(widgets_position, f)
 
     def quit_app():
         if lbl_recording_status["text"] == "Status: Recording":
@@ -244,7 +241,7 @@ def main():
     lbl_summary.place(x=40, y=265)
 
     btn_quit = Button(root, text="X", width=2, height=1)
-    quit_func = quit_wrapper(locals(), quit_app, save_widgets, path="")
+    quit_func = quit_wrapper(locals(), quit_app, verbose=True)
     btn_quit.config(command=quit_func)
     btn_quit.place(x=460, y=0)
     Refresher()
@@ -255,7 +252,7 @@ def main():
     root.mainloop()
     # @TODO: Delete last recording using joystick switch/aux.
     # @TODO: Test with more than 1 display.
-    # @TODO: add summary in start recording lbl (done but ugly)
+    # @TODO: add summary/graphs in start recording lbl (done but ugly)
 
 
 if __name__ == '__main__':

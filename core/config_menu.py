@@ -24,6 +24,7 @@ from PIL.ImageTk import PhotoImage
 from PIL import Image
 from recording import stop_func
 from winfo import getWindowSizes, get_window_monitor
+from tests.tk_widget_dnd import dnd, get_widgets_position, set_widgets_position, quit_wrapper
 
 
 def config_menu(root, joystick, config, config_file_path):
@@ -104,17 +105,26 @@ def config_menu(root, joystick, config, config_file_path):
     btn_calib_file.place(x=x0 + 390, y=y0+14)
 
     # Workers
-    x0, y0 = 10, 110
-    var_num_workers = StringVar()
+    x0, y0 = 44, 115
+    var_num_save_workers = StringVar()
+    var_num_capture_workers = StringVar()
     lbl_num_workers = Label(window, text="# workers:")
-    lbl_num_workers.place(x=x0, y=y0)
-    entry_num_workers = Entry(window, textvariable=var_num_workers, width=5)
-    entry_num_workers.place(x=x0+13, y=y0+18)
-    var_num_workers.set(config.get("num_workers"))
-    var_num_workers.trace("w", lambda name, index, mode, sv=var_num_workers: config.update({"num_workers": int(sv.get())}))
+    lbl_num_workers.place(x=x0, y=y0-20)
+    lbl_num_save_workers = Label(window, text="Saving:")
+    lbl_num_save_workers.place(x=82, y=y0)
+    lbl_num_capture_workers = Label(window, text="Capturing:")
+    lbl_num_capture_workers.place(x=10, y=y0)
+    entry_num_save_workers = Entry(window, textvariable=var_num_save_workers, width=5)
+    entry_num_save_workers.place(x=25, y=y0 + 20)
+    entry_num_capture_workers = Entry(window, textvariable=var_num_capture_workers, width=5)
+    entry_num_capture_workers.place(x=85, y=y0 + 20)
+    var_num_save_workers.set(config.get("num_saving_workers"))
+    var_num_save_workers.trace("w", lambda name, index, mode, sv=var_num_save_workers: config.update({"num_saving_workers": int(sv.get())}))
+    var_num_capture_workers.set(config.get("num_capturing_workers"))
+    var_num_capture_workers.trace("w", lambda name, index, mode, sv=var_num_capture_workers: config.update({"num_capturing_workers": int(sv.get())}))
 
     # Buffer size
-    x0, y0 = 80, 110
+    x0, y0 = 134, 115
     var_buffer_size = StringVar()
     lbl_buffer_size = Label(window, text="Buffer size:")
     lbl_buffer_size.place(x=x0, y=y0)
@@ -229,7 +239,9 @@ def config_menu(root, joystick, config, config_file_path):
 
     change_resolution()
     Refresher()
+    # quit_func = quit_wrapper(locals(), on_closing, verbose=True)
     window.protocol("WM_DELETE_WINDOW", on_closing)
+    # dnd(locals(), mouse_button=3)
     window.mainloop()
 
 

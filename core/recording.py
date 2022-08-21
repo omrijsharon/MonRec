@@ -20,7 +20,8 @@ class RecordingManager:
         self.monitor = config.get("monitor")
         self.compression = config.get("compression")
         self.type = config.get("type")
-        self.num_workers = config.get("num_workers")
+        self.num_save_workers = config.get("num_saving_workers")
+        self.num_capture_workers = config.get("num_capturing_workers")
         self.calib_file = config.get("calib_file")
         self.buffer_size = config.get("buffer_size")
         self.base_path = config.get("rec_dir")
@@ -41,7 +42,8 @@ class RecordingManager:
         self.monitor = config.get("monitor")
         self.compression = config.get("compression")
         self.type = config.get("type")
-        self.num_workers = config.get("num_workers")
+        self.num_save_workers = config.get("num_saving_workers")
+        self.num_capture_workers = config.get("num_capturing_workers")
         self.calib_file = config.get("calib_file")
         self.buffer_size = config.get("buffer_size")
         self.base_path = config.get("rec_dir")
@@ -56,10 +58,10 @@ class RecordingManager:
         self.queue_frames = Queue()
         self.queue_sticks = Queue()
         # init processes
-        self.p_grab_frames = Process(target=grab_frames_to_queue, args=(self.queue_frames, self.stop_grab_event, self.monitor, self.compression), daemon=True)
+        self.p_grab_frames = [Process(target=grab_frames_to_queue, args=(self.queue_frames, self.stop_grab_event, self.monitor, self.compression), daemon=True) for _ in range(self.num_capture_workers)]
         self.p_grab_sticks = Process(target=grab_sticks_to_queue, args=(self.joystick, self.queue_sticks, self.stop_grab_event), daemon=True)
         self.p_save_sticks = Process(target=save_sticks_from_queue, args=(self.queue_sticks, self.path, self.calib_file, self.stop_grab_event, self.buffer_size))
-        self.p_save_frames = [Process(target=save_frames_from_queue, args=(self.queue_frames, self.path, self.stop_grab_event, self.monitor, self.type, self.compression)) for _ in range(self.num_workers)]
+        self.p_save_frames = [Process(target=save_frames_from_queue, args=(self.queue_frames, self.path, self.stop_grab_event, self.monitor, self.type, self.compression)) for _ in range(self.num_save_workers)]
 
     def start_recording(self):
         if not os.path.exists(self.calib_file):
@@ -69,7 +71,7 @@ class RecordingManager:
         os.path.exists(self.path) or os.makedirs(self.path)
         sleep(1)
         print("Start recording to:  ", self.path)
-        processes_list = [self.p_grab_frames, self.p_grab_sticks, self.p_save_sticks, *self.p_save_frames]
+        processes_list = [*self.p_grab_frames, self.p_grab_sticks, self.p_save_sticks, *self.p_save_frames]
         # start processes
         [p.start() for p in processes_list]
         self.is_recording = True
@@ -95,7 +97,7 @@ class RecordingManager:
         [queue.close() for queue in queues]
 
     def terminate_processes(self):
-        processes = [self.p_grab_frames, self.p_grab_sticks, self.p_save_sticks, *self.p_save_frames]
+        processes = [*self.p_grab_frames, self.p_grab_sticks, self.p_save_sticks, *self.p_save_frames]
         [p.terminate() for p in processes if p.is_alive()]
         [p.kill() for p in processes if p.is_alive()]
         [p.join() for p in processes]
